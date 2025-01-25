@@ -6,7 +6,7 @@ import { Button } from "./ui/button";
 import { IoSend, IoClose } from "react-icons/io5";
 import { Label } from "./ui/label";
 import GradientText from "./ui/GradientText";
-import { IoMdSettings } from "react-icons/io";
+import { IoMdSettings, IoMdLogOut } from "react-icons/io";
 import { SkeletonDemo } from "./ui/SkeletonDemo";
 import { IoMdLogIn } from "react-icons/io";
 import { FaHistory } from "react-icons/fa";
@@ -35,6 +35,12 @@ function ChatBox({ onClose }) {
     navigate("/login");
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem("userToken");
+    setIsLoggedIn(false);
+    setShowHistory(false);
+  };
+
   const handleHistoryClick = () => {
     setShowHistory(!showHistory);
   };
@@ -58,11 +64,6 @@ function ChatBox({ onClose }) {
           )}
           <GradientText
             colors={["#b185db", "#5a8dee", "#59c3e3", "#ff85a1", "#d25ca8"]}
-            // colors={["#40ffaa", "#4079ff", "#40ffaa", "#4079ff", "#40ffaa"]}
-            // colors={["#7f40ff", "#4079ff", "#7f40ff", "#4079ff", "#7f40ff"]}
-            // colors={["#a240ff", "#6040ff", "#4064ff", "#4079ff", "#60a4ff"]}
-            // colors={["#9b5de5", "#574ae2", "#3a86ff", "#574ae2", "#9b5de5"]}
-            // colors={["#9b5de5", "#4361ee", "#3a86ff", "#00f5d4", "#ff4d6d"]}
             animationSpeed={3}
             showBorder={false}
             className="custom-class text-3xl mb-3"
@@ -70,7 +71,16 @@ function ChatBox({ onClose }) {
             Welcome to Sahayak
           </GradientText>
 
-          {!isLoggedIn && (
+          {isLoggedIn ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleLogout}
+              className="text-pink-500 text-3xl hover:bg-pink-800 hover:text-white"
+            >
+              <IoMdLogOut />
+            </Button>
+          ) : (
             <Button
               variant="ghost"
               size="icon"
@@ -100,14 +110,27 @@ function ChatBox({ onClose }) {
 
         <div className="flex-1 overflow-y-auto p-4">
           {showHistory ? (
-            <div className="space-y-4">
-              {chatHistory.map((chat) => (
-                <div key={chat.id} className="bg-gray-800 rounded-lg p-3">
-                  <p className="text-blue-400 font-medium">Query: {chat.query}</p>
-                  <p className="text-white mt-2">Response: {chat.response}</p>
-                </div>
-              ))}
-            </div>
+            isLoggedIn ? (
+              <div className="space-y-4">
+                {chatHistory.map((chat) => (
+                  <div key={chat.id} className="bg-gray-800 rounded-lg p-3">
+                    <p className="text-blue-400 font-medium">Query: {chat.query}</p>
+                    <p className="text-white mt-2">Response: {chat.response}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center text-white py-4">
+                Please login to see chat history
+                <Button
+                  variant="ghost"
+                  onClick={handleLoginClick}
+                  className="ml-2 text-pink-500 hover:bg-pink-800 hover:text-white"
+                >
+                  Login
+                </Button>
+              </div>
+            )
           ) : (
             <>
               <div className="mt-3">
