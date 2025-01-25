@@ -1,4 +1,5 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import SpotlightCard from "./ui/SpotlightCard";
 import { Textarea } from "./ui/textarea";
 import { Button } from "./ui/button";
@@ -7,15 +8,14 @@ import { Label } from "./ui/label";
 import GradientText from "./ui/GradientText";
 import { IoMdSettings } from "react-icons/io";
 import { SkeletonDemo } from "./ui/SkeletonDemo";
-import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from "./ui/hover-card"
-
-
 
 function ChatBox({ onClose }) {
+  const navigate = useNavigate();
+
+  const handleSettingsClick = () => {
+    navigate('/admin');
+  };
+
   return (
     <div className="fixed bottom-24 right-8 h-[80%] w-[40%]">
       <SpotlightCard
@@ -39,7 +39,7 @@ function ChatBox({ onClose }) {
           <Button
             variant="ghost"
             size="icon"
-            onClick={onClose}
+            onClick={handleSettingsClick}
             className="text-blue-500 text-3xl hover:bg-blue-800 hover:text-white"
           >
            <IoMdSettings />
