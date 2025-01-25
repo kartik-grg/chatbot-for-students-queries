@@ -1,28 +1,31 @@
 import React, { useState } from "react";
-import { RiAdminLine } from "react-icons/ri";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
+import { FaUserGraduate } from "react-icons/fa";
 import GradientText from "./ui/GradientText";
 
-
-function LoginAdmin() {
-  const navigate = useNavigate();
-  const [formData, setFormData] = useState({
-    email: "",
+function UserLogin() {
+  const [credentials, setCredentials] = useState({
+    username: "",
     password: "",
   });
-  const [error, setError] = useState("");
+  const [error, setError] = useState(null);
+  const navigate = useNavigate();
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    // This is a simple example - replace with your actual authentication logic
-    if (
-      formData.email === "admin@example.com" &&
-      formData.password === "admin123"
-    ) {
-      localStorage.setItem("adminToken", "your-auth-token");
-      navigate("/admin/dashboard");
-    } else {
-      setError("Invalid credentials");
+    setError(null);
+    
+    if (!credentials.username || !credentials.password) {
+      setError("Please fill in all fields");
+      return;
+    }
+
+    try {
+      // Add your authentication logic here
+      localStorage.setItem("userToken", "dummy-token");
+      navigate("/");
+    } catch (err) {
+      setError("Login failed. Please try again.");
     }
   };
 
@@ -30,42 +33,40 @@ function LoginAdmin() {
     <div className="min-h-screen bg-gray-900 flex items-center justify-center px-4">
       <div className="max-w-md w-full space-y-8">
         <div className="flex flex-col items-center">
-          <RiAdminLine className="text-8xl text-blue-700" />
+          <FaUserGraduate className="text-8xl text-indigo-500" />
           <GradientText className="mt-6 text-center text-3xl font-extrabold">
-            Admin Login
+            User Login
           </GradientText>
         </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+        
+        <form onSubmit={handleSubmit} className="space-y-6 mt-8">
           {error && (
             <div className="text-red-500 text-center text-sm">{error}</div>
           )}
           <div className="rounded-md shadow-sm -space-y-px">
             <div>
               <input
-                type="email"
-                required
+                type="text"
+                placeholder="Username"
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-700 placeholder-gray-500 text-white bg-gray-800 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Email address"
-                value={formData.email}
+                value={credentials.username}
                 onChange={(e) =>
-                  setFormData({ ...formData, email: e.target.value })
+                  setCredentials({ ...credentials, username: e.target.value })
                 }
               />
             </div>
             <div>
               <input
                 type="password"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-700 placeholder-gray-500 text-white bg-gray-800 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
                 placeholder="Password"
-                value={formData.password}
+                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-700 placeholder-gray-500 text-white bg-gray-800 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                value={credentials.password}
                 onChange={(e) =>
-                  setFormData({ ...formData, password: e.target.value })
+                  setCredentials({ ...credentials, password: e.target.value })
                 }
               />
             </div>
           </div>
-
           <div>
             <button
               type="submit"
@@ -74,10 +75,16 @@ function LoginAdmin() {
               Sign in
             </button>
           </div>
+          <div className="text-center text-sm">
+            <span className="text-gray-500">Don't have an account? </span>
+            <Link to="/signup" className="text-indigo-500 hover:text-indigo-400">
+              Sign up
+            </Link>
+          </div>
         </form>
       </div>
     </div>
   );
 }
 
-export default LoginAdmin;
+export default UserLogin;

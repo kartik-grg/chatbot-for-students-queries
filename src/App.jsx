@@ -5,17 +5,17 @@ import ChatBox from "./components/ChatBox";
 import Squares from "./components/ui/Squares";
 import LoginAdmin from './components/LoginAdmin';
 import Admin from './components/Admin';
+import UserLogin from './components/UserLogin';
+import UserSignUp from './components/UserSignUp';
 
-// Simple auth check - replace with your actual auth logic
-const isAuthenticated = () => {
-  // Add your authentication check logic here
-  return localStorage.getItem('adminToken') !== null;
-};
+// Auth checks
+const isAdminAuthenticated = () => localStorage.getItem('adminToken') !== null;
+const isUserAuthenticated = () => localStorage.getItem('userToken') !== null;
 
 // Protected Route Component
-const ProtectedRoute = ({ children }) => {
-  if (!isAuthenticated()) {
-    return <Navigate to="/admin" replace />;
+const ProtectedRoute = ({ children, authCheck }) => {
+  if (!authCheck()) {
+    return <Navigate to="/login" replace />;
   }
   return children;
 };
@@ -45,7 +45,7 @@ function App() {
             <Squares
               speed={0.5}
               squareSize={40}
-              direction="diagonal" // up, down, left, right, diagonal
+              direction="down" // up, down, left, right, diagonal
               borderColor="#fff"
               hoverFillColor="#222"
             />
@@ -60,12 +60,16 @@ function App() {
           </div>
         } />
         
+        {/* User routes */}
+        <Route path="/login" element={<UserLogin />} />
+        <Route path="/signup" element={<UserSignUp />} />
+        
         {/* Admin routes */}
         <Route path="/admin" element={<LoginAdmin />} />
         <Route 
           path="/admin/dashboard" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute authCheck={isAdminAuthenticated}>
               <Admin />
             </ProtectedRoute>
           } 
