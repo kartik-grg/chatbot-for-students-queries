@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import SpotlightCard from "./ui/SpotlightCard";
 import { Textarea } from "./ui/textarea";
@@ -19,12 +19,19 @@ function ChatBox({ onClose }) {
   const [chatHistory, setChatHistory] = useState([]);
   const [message, setMessage] = useState("");
   const [showConversation, setShowConversation] = useState(false);
+  const conversationRef = useRef(null);
 
   useEffect(() => {
     // Check if user is logged in
     const userToken = localStorage.getItem("userToken");
     setIsLoggedIn(!!userToken);
   }, []);
+
+  useEffect(() => {
+    if (conversationRef.current) {
+      conversationRef.current.scrollTop = conversationRef.current.scrollHeight;
+    }
+  }, [chatHistory, showConversation]);
 
   const handleSettingsClick = () => {
     navigate("/admin");
@@ -169,7 +176,14 @@ function ChatBox({ onClose }) {
         </div> */}
 
         {showConversation ? (
-          <div className="space-y-4 overflow-y-auto">
+          <div
+            ref={conversationRef}
+            className="space-y-4 overflow-y-auto"
+            style={{
+              scrollbarWidth: "none" /* Firefox */,
+              msOverflowStyle: "none" /* IE and Edge */
+            }}
+          >
             {console.log(chatHistory)}
           {chatHistory.map((chat) => (
             <div key={chat.query.length} className="bg-gray-800 rounded-lg p-3">
@@ -202,6 +216,12 @@ function ChatBox({ onClose }) {
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 className="min-h-[50px] max-h-[100px] text-white"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
               />
             </div>
             <Button className="h-[50px] px-4" onClick={handleSendMessage}>
