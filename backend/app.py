@@ -24,13 +24,13 @@ db = client["chatbot"]  # Replace with your database name
 queries_collection = db["queries"]  # Replace with your collection name
 users_collection = db["users"]  # Replace with your collection name
 
-@app.route('/api/inspect-routes', methods=['GET'])
-def inspect_routes():
-    return jsonify({rule.rule: rule.endpoint for rule in app.url_map.iter_rules()})
+# @app.route('/api/inspect-routes', methods=['GET'])
+# def inspect_routes():
+#     return jsonify({rule.rule: rule.endpoint for rule in app.url_map.iter_rules()})
 
-@app.route('/', methods=['GET'])
-def home():
-    return "Welcome to the Flask Backend!"
+# @app.route('/', methods=['GET'])
+# def home():
+#     return "Welcome to the Flask Backend!"
 
 # Signup Route
 @app.route('/api/signup', methods=['POST'])
@@ -56,7 +56,7 @@ def login():
     data = request.json
     username = data.get("username")
     password = data.get("password")
-    print('username: ', username, "passs: ", password)
+    # print('username: ', username, "passs: ", password)
     user = users_collection.find_one({"username": username})
     if user and bcrypt.check_password_hash(user["password"], password):
         token = jwt.encode(

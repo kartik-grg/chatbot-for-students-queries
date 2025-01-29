@@ -82,6 +82,13 @@ function LoginAdmin() {
             </button>
           </div>
         </form>
+        <button
+            type="button"
+            onClick={() => navigate("/")}
+            className="w-full flex justify-center py-2 px-4 border border-indigo-600 text-indigo-600 rounded-md hover:bg-indigo-700 hover:text-white transition-colors duration-200"
+          >
+            Go Back
+          </button>
       </div>
     </div>
   );
