@@ -169,7 +169,7 @@ function ChatBox({ onClose }) {
         </div> */}
 
         {showConversation ? (
-          <div className="space-y-4">
+          <div className="space-y-4 overflow-y-auto">
             {console.log(chatHistory)}
           {chatHistory.map((chat) => (
             <div key={chat.query.length} className="bg-gray-800 rounded-lg p-3">
