@@ -82,14 +82,14 @@ function UserLogin() {
             >
               Sign in
             </button>
-          </div>
           <button
             type="button"
             onClick={() => navigate("/")}
-            className="mt-1 w-full flex justify-center py-2 px-4 border border-indigo-600 text-indigo-600 rounded-md hover:bg-indigo-700 hover:text-white transition-colors duration-200"
+            className="mt-2 w-full flex justify-center py-2 px-4 border border-indigo-600 text-indigo-600 rounded-md hover:bg-indigo-700 hover:text-white transition-colors duration-200"
           >
             Go Back
           </button>
+          </div>
           <div className="text-center text-sm">
             <span className="text-gray-500">Don't have an account? </span>
             <Link to="/signup" className="text-indigo-500 hover:text-indigo-400">

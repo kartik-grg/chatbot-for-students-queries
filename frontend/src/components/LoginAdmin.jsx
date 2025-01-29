@@ -4,7 +4,6 @@ import { useNavigate } from "react-router-dom";
 import GradientText from "./ui/GradientText";
 import axios from "axios";
 
-
 function LoginAdmin() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
@@ -16,13 +15,13 @@ function LoginAdmin() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-  
+
     try {
       const response = await axios.post("/api/admin/login", {
         email: formData.email,
         password: formData.password,
       });
-  
+
       if (response.data.token) {
         localStorage.setItem("adminToken", response.data.token);
         navigate("/admin/dashboard");
@@ -31,7 +30,6 @@ function LoginAdmin() {
       setError("Invalid credentials");
     }
   };
-  
 
   return (
     <div className="min-h-screen bg-gray-900 flex items-center justify-center px-4">
@@ -80,15 +78,15 @@ function LoginAdmin() {
             >
               Sign in
             </button>
+            <button
+              type="button"
+              onClick={() => navigate("/")}
+              className="mt-2 w-full flex justify-center py-2 px-4 border border-indigo-600 text-indigo-600 rounded-md hover:bg-indigo-700 hover:text-white transition-colors duration-200"
+            >
+              Go Back
+            </button>
           </div>
         </form>
-        <button
-            type="button"
-            onClick={() => navigate("/")}
-            className="w-full flex justify-center py-2 px-4 border border-indigo-600 text-indigo-600 rounded-md hover:bg-indigo-700 hover:text-white transition-colors duration-200"
-          >
-            Go Back
-          </button>
       </div>
     </div>
   );
