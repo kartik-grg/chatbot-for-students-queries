@@ -55,9 +55,17 @@ function ChatBox({ onClose }) {
     if (!message.trim()) return;
 
     try {
-      const response = await axios.post("/api/query", {
-        question: message,
-      });
+      const token = localStorage.getItem("userToken");
+      const response = await axios.post("/api/query", 
+        {
+          question: message,
+        },
+        {
+          headers: { 
+            Authorization: token ? `Bearer ${token}` : undefined
+          }
+        }
+      );
 
       setChatHistory((prev) => [
         ...prev,

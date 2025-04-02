@@ -1,12 +1,19 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { RiDashboardLine, RiLogoutBoxLine, RiMessage2Line } from 'react-icons/ri'
+import { RiDashboardLine, RiLogoutBoxLine, RiMessage2Line, RiDeleteBin6Line } from 'react-icons/ri'
 import axios from "axios";
 
 function Admin() {
   const navigate = useNavigate();
   const [unansweredQueries, setUnansweredQueries] = useState([]);
   const [response, setResponse] = useState({});
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [adminChatHistory, setAdminChatHistory] = useState([]);
+  const [stats, setStats] = useState({
+    total_users: 0,
+    total_chats: 0,
+    unanswered_queries: 0
+  });
 
   useEffect(() => {
     const fetchUnansweredQueries = async () => {
@@ -22,6 +29,34 @@ function Admin() {
     fetchUnansweredQueries();
   }, []);
 
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const token = localStorage.getItem('adminToken');
+        const response = await axios.get('/api/admin/stats', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setStats(response.data);
+      } catch (error) {
+        console.error("Error fetching stats:", error);
+      }
+    };
+
+    fetchStats();
+  }, []);
+
+  const fetchAdminChatHistory = async () => {
+    try {
+      const token = localStorage.getItem('adminToken');
+      const response = await axios.get('/api/admin/chat-history', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setAdminChatHistory(response.data.history);
+    } catch (error) {
+      console.error("Error fetching chat history:", error);
+    }
+  };
+
   const handleResponseSubmit = async (id) => {
     try {
       await axios.post("/api/add-response", {
@@ -33,6 +68,18 @@ function Admin() {
       alert("Response submitted successfully!");
     } catch (error) {
       console.error("Error submitting response:", error);
+    }
+  };
+
+  const handleDeleteQuery = async (id) => {
+    if (window.confirm('Are you sure you want to delete this query?')) {
+      try {
+        await axios.delete(`/api/delete-query/${id}`);
+        setUnansweredQueries((prev) => prev.filter((query) => query._id !== id));
+      } catch (error) {
+        console.error("Error deleting query:", error);
+        alert("Failed to delete query");
+      }
     }
   };
 
@@ -51,11 +98,22 @@ function Admin() {
           </div>
           
           <nav className="flex-grow py-4">
-            <a href="#" className="flex items-center px-6 py-3 text-gray-300 hover:bg-gray-700">
+            <a 
+              href="#" 
+              className={`flex items-center px-6 py-3 text-gray-300 hover:bg-gray-700 ${activeTab === 'dashboard' ? 'bg-gray-700' : ''}`}
+              onClick={() => setActiveTab('dashboard')}
+            >
               <RiDashboardLine className="mr-3" />
               Dashboard
             </a>
-            <a href="#" className="flex items-center px-6 py-3 text-gray-300 hover:bg-gray-700">
+            <a 
+              href="#" 
+              className={`flex items-center px-6 py-3 text-gray-300 hover:bg-gray-700 ${activeTab === 'chat-history' ? 'bg-gray-700' : ''}`}
+              onClick={() => {
+                setActiveTab('chat-history');
+                fetchAdminChatHistory();
+              }}
+            >
               <RiMessage2Line className="mr-3" />
               Chat History
             </a>
@@ -75,46 +133,82 @@ function Admin() {
 
       {/* Main content */}
       <div className="ml-64 p-8">
-        <div className="bg-gray-800 rounded-lg p-6">
-          <h2 className="text-2xl text-white mb-4">Welcome, Admin</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="bg-gray-700 p-4 rounded-lg">
-              <h3 className="text-white text-lg mb-2">Total Chats</h3>
-              <p className="text-blue-400 text-2xl font-bold">0</p>
-            </div>
-            <div className="bg-gray-700 p-4 rounded-lg">
-              <h3 className="text-white text-lg mb-2">Active Users</h3>
-              <p className="text-green-400 text-2xl font-bold">0</p>
-            </div>
-            <div className="bg-gray-700 p-4 rounded-lg">
-              <h3 className="text-white text-lg mb-2">Total Messages</h3>
-              <p className="text-purple-400 text-2xl font-bold">0</p>
+        {activeTab === 'dashboard' ? (
+          <div className="bg-gray-800 rounded-lg p-6">
+            <h2 className="text-2xl text-white mb-4">Welcome, Admin</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="bg-gray-700 p-4 rounded-lg">
+                <h3 className="text-white text-lg mb-2">Total Chats</h3>
+                <p className="text-blue-400 text-2xl font-bold">{stats.total_chats}</p>
+              </div>
+              <div className="bg-gray-700 p-4 rounded-lg">
+                <h3 className="text-white text-lg mb-2">Active Users</h3>
+                <p className="text-green-400 text-2xl font-bold">{stats.total_users}</p>
+              </div>
+              <div className="bg-gray-700 p-4 rounded-lg">
+                <h3 className="text-white text-lg mb-2">Total Unanswered Queries</h3>
+                <p className="text-purple-400 text-2xl font-bold">{stats.unanswered_queries}</p>
+              </div>
             </div>
           </div>
-        </div>
-
-        <div className="mt-8 text-white">
-          <h2 className="text-xl font-bold mb-4">Unanswered Queries</h2>
-          {unansweredQueries.map((query) => (
-            <div key={query._id} className="mb-4">
-              <p className="mb-2">Q: {query.question}</p>
-              <textarea
-                value={response[query._id] || ""}
-                onChange={(e) =>
-                  setResponse((prev) => ({ ...prev, [query._id]: e.target.value }))
-                }
-                placeholder="Type your response"
-                className="w-full bg-gray-700 text-white rounded p-2 mb-2"
-              />
-              <button
-                onClick={() => handleResponseSubmit(query._id)}
-                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-              >
-                Submit
-              </button>
+        ) : (
+          <div className="bg-gray-800 rounded-lg p-6">
+            <h2 className="text-2xl text-white mb-4">User Chat History</h2>
+            <div className="space-y-4">
+              {adminChatHistory.map((chat) => (
+                <div key={chat._id} className="bg-gray-700 p-4 rounded-lg">
+                  <div className="text-gray-400 text-sm mb-2">
+                    {new Date(chat.timestamp).toLocaleString()} - {chat.username}
+                  </div>
+                  <div className="space-y-2">
+                    <div>
+                      <span className="text-blue-400 font-medium">Question: </span>
+                      <span className="text-white">{chat.question}</span>
+                    </div>
+                    <div>
+                      <span className="text-green-400 font-medium">Answer: </span>
+                      <span className="text-white">{chat.answer}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          </div>
+        )}
+
+        {activeTab === 'dashboard' && (
+          <div className="mt-8 text-white">
+            <h2 className="text-xl font-bold mb-4">Unanswered Queries</h2>
+            {unansweredQueries.map((query) => (
+              <div key={query._id} className="mb-4 bg-gray-800 p-4 rounded-lg">
+                <div className="flex justify-between items-start mb-2">
+                  <p className="mb-2">Q: {query.question}</p>
+                  <button
+                    onClick={() => handleDeleteQuery(query._id)}
+                    className="text-red-500 hover:text-red-700 p-1"
+                    title="Delete query"
+                  >
+                    <RiDeleteBin6Line size={20} />
+                  </button>
+                </div>
+                <textarea
+                  value={response[query._id] || ""}
+                  onChange={(e) =>
+                    setResponse((prev) => ({ ...prev, [query._id]: e.target.value }))
+                  }
+                  placeholder="Type your response"
+                  className="w-full bg-gray-700 text-white rounded p-2 mb-2"
+                />
+                <button
+                  onClick={() => handleResponseSubmit(query._id)}
+                  className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                >
+                  Submit
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
