@@ -6,11 +6,11 @@ import { Button } from "./ui/button";
 import { IoSend, IoClose } from "react-icons/io5";
 import { Label } from "./ui/label";
 import GradientText from "./ui/GradientText";
-import { IoMdSettings, IoMdLogOut } from "react-icons/io";
+import { IoMdSettings } from "react-icons/io";
 import { SkeletonDemo } from "./ui/SkeletonDemo";
-import { IoMdLogIn } from "react-icons/io";
 import { FaHistory } from "react-icons/fa";
 import { BiExpandAlt, BiCollapseAlt } from "react-icons/bi"; // Added resize icons
+import { FiLogOut, FiLogIn } from "react-icons/fi"; // More distinct login/logout icons
 import axios from "axios";
 import { format } from "date-fns";
 
@@ -207,6 +207,7 @@ function ChatBox({ onClose }) {
               size="icon"
               onClick={handleHistoryClick}
               className="text-blue-500 text-3xl hover:bg-blue-800 hover:text-white"
+              title="View history"
             >
               <FaHistory />
             </Button>
@@ -247,8 +248,9 @@ function ChatBox({ onClose }) {
                 size="icon"
                 onClick={handleLogout}
                 className="text-pink-500 text-3xl hover:bg-pink-800 hover:text-white"
+                title="Log out"
               >
-                <IoMdLogOut />
+                <FiLogOut className="h-5 w-5" />
               </Button>
             ) : (
               <Button
@@ -256,8 +258,9 @@ function ChatBox({ onClose }) {
                 size="icon"
                 onClick={handleLoginClick}
                 className="text-pink-500 text-3xl hover:bg-pink-800 hover:text-white"
+                title="Log in"
               >
-                <IoMdLogIn />
+                <FiLogIn className="h-5 w-5" />
               </Button>
             )}
             <Button
@@ -265,6 +268,7 @@ function ChatBox({ onClose }) {
               size="icon"
               onClick={handleSettingsClick}
               className="text-blue-500 text-3xl hover:bg-blue-800 hover:text-white"
+              title="Admin Login"
             >
               <IoMdSettings />
             </Button>
@@ -273,6 +277,7 @@ function ChatBox({ onClose }) {
               size="icon"
               onClick={onClose}
               className="text-red-500 hover:bg-red-800 hover:text-white"
+              title="Close"
             >
               <IoClose className="h-6 w-6" />
             </Button>
@@ -310,6 +315,7 @@ function ChatBox({ onClose }) {
                   variant="ghost"
                   onClick={handleLoginClick}
                   className="ml-2 text-pink-500 hover:bg-pink-800 hover:text-white"
+                  title="Log in to view history"
                 >
                   Login
                 </Button>
@@ -359,7 +365,7 @@ function ChatBox({ onClose }) {
                 }}
               />
             </div>
-            <Button className="h-[50px] px-4" onClick={handleSendMessage}>
+            <Button className="h-[50px] px-4" onClick={handleSendMessage} title="Send message">
               <IoSend className="h-5 w-5" />
             </Button>
           </div>
