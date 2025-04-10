@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { RiDashboardLine, RiLogoutBoxLine, RiMessage2Line, RiDeleteBin6Line } from 'react-icons/ri'
+import { RiDashboardLine, RiLogoutBoxLine, RiMessage2Line, RiDeleteBin6Line, RiBarChart2Line } from 'react-icons/ri'
 import axios from "axios";
+import QueryAnalytics from './QueryAnalytics';
 
 function Admin() {
   const navigate = useNavigate();
@@ -15,43 +16,42 @@ function Admin() {
     unanswered_queries: 0
   });
 
+  // Fetch unanswered queries
   useEffect(() => {
     const fetchUnansweredQueries = async () => {
       try {
-        const response = await axios.get("/api/unanswered-queries");
-        setUnansweredQueries(response.data.queries);
-        // console.log(response.data.queries);
+        const res = await axios.get("/api/unanswered-queries");
+        setUnansweredQueries(res.data.queries);
       } catch (error) {
         console.error("Error fetching unanswered queries:", error);
       }
     };
-
     fetchUnansweredQueries();
   }, []);
 
+  // Fetch stats
   useEffect(() => {
     const fetchStats = async () => {
       try {
         const token = localStorage.getItem('adminToken');
-        const response = await axios.get('/api/admin/stats', {
+        const res = await axios.get('/api/admin/stats', {
           headers: { Authorization: `Bearer ${token}` }
         });
-        setStats(response.data);
+        setStats(res.data);
       } catch (error) {
         console.error("Error fetching stats:", error);
       }
     };
-
     fetchStats();
   }, []);
 
   const fetchAdminChatHistory = async () => {
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await axios.get('/api/admin/chat-history', {
+      const res = await axios.get('/api/admin/chat-history', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setAdminChatHistory(response.data.history);
+      setAdminChatHistory(res.data.history);
     } catch (error) {
       console.error("Error fetching chat history:", error);
     }
@@ -63,7 +63,6 @@ function Admin() {
         id,
         response: response[id],
       });
-
       setUnansweredQueries((prev) => prev.filter((query) => query._id !== id));
       alert("Response submitted successfully!");
     } catch (error) {
@@ -117,6 +116,14 @@ function Admin() {
               <RiMessage2Line className="mr-3" />
               Chat History
             </a>
+            <a 
+              href="#" 
+              className={`flex items-center px-6 py-3 text-gray-300 hover:bg-gray-700 ${activeTab === 'analytics' ? 'bg-gray-700' : ''}`}
+              onClick={() => setActiveTab('analytics')}
+            >
+              <RiBarChart2Line className="mr-3" />
+              Analytics
+            </a>
           </nav>
 
           <div className="p-4">
@@ -133,7 +140,8 @@ function Admin() {
 
       {/* Main content */}
       <div className="ml-64 p-8">
-        {activeTab === 'dashboard' ? (
+        {/* Dashboard Tab */}
+        {activeTab === 'dashboard' && (
           <div className="bg-gray-800 rounded-lg p-6">
             <h2 className="text-2xl text-white mb-4">Welcome, Admin</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -150,8 +158,43 @@ function Admin() {
                 <p className="text-purple-400 text-2xl font-bold">{stats.unanswered_queries}</p>
               </div>
             </div>
+
+            {/* Unanswered Queries Section */}
+            <div className="mt-8 text-white">
+              <h2 className="text-xl font-bold mb-4">Unanswered Queries</h2>
+              {unansweredQueries.length > 0 ? (
+                unansweredQueries.map(query => (
+                  <div key={query._id} className="mb-4 bg-gray-800 p-4 rounded-lg">
+                    <p className="mb-2">Q: {query.question}</p>
+                    <button
+                      onClick={() => handleDeleteQuery(query._id)}
+                      className="text-red-500 hover:text-red-700 p-1"
+                      title="Delete query"
+                    >
+                      <RiDeleteBin6Line size={20} />
+                    </button>
+                    <textarea
+                      value={response[query._id] || ""}
+                      onChange={(e) => setResponse(prev => ({...prev, [query._id]: e.target.value}))}
+                      placeholder="Type your response"
+                      className="w-full bg-gray-700 text-white rounded p-2 mb-2"
+                    />
+                    <button
+                      onClick={() => handleResponseSubmit(query._id)}
+                      className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                    >
+                      Submit
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <div className="text-gray-400">No unanswered queries.</div>
+              )}
+            </div>
           </div>
-        ) : (
+        )}
+
+        {activeTab === 'chat-history' && (
           <div className="bg-gray-800 rounded-lg p-6">
             <h2 className="text-2xl text-white mb-4">User Chat History</h2>
             <div className="space-y-4">
@@ -176,42 +219,12 @@ function Admin() {
           </div>
         )}
 
-        {activeTab === 'dashboard' && (
-          <div className="mt-8 text-white">
-            <h2 className="text-xl font-bold mb-4">Unanswered Queries</h2>
-            {unansweredQueries.map((query) => (
-              <div key={query._id} className="mb-4 bg-gray-800 p-4 rounded-lg">
-                <div className="flex justify-between items-start mb-2">
-                  <p className="mb-2">Q: {query.question}</p>
-                  <button
-                    onClick={() => handleDeleteQuery(query._id)}
-                    className="text-red-500 hover:text-red-700 p-1"
-                    title="Delete query"
-                  >
-                    <RiDeleteBin6Line size={20} />
-                  </button>
-                </div>
-                <textarea
-                  value={response[query._id] || ""}
-                  onChange={(e) =>
-                    setResponse((prev) => ({ ...prev, [query._id]: e.target.value }))
-                  }
-                  placeholder="Type your response"
-                  className="w-full bg-gray-700 text-white rounded p-2 mb-2"
-                />
-                <button
-                  onClick={() => handleResponseSubmit(query._id)}
-                  className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-                >
-                  Submit
-                </button>
-              </div>
-            ))}
-          </div>
+        {activeTab === 'analytics' && (
+          <QueryAnalytics />
         )}
       </div>
     </div>
   )
 }
 
-export default Admin
+export default Admin;

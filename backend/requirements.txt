@@ -23,3 +23,4 @@ requests
 faiss-cpu
 reportlab
 python-Levenshtein
+textblob

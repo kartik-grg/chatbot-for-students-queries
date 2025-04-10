@@ -26,6 +26,8 @@ from reportlab.lib.pagesizes import letter
 import os.path
 from time import time
 from difflib import SequenceMatcher
+from textblob import TextBlob
+from collections import defaultdict, Counter
 
 # Load environment variables
 load_dotenv()
@@ -417,7 +419,7 @@ def get_unanswered_queries():
     unanswered = list(queries_collection.find({"answered": False}))
     for query in unanswered:
         query["_id"] = str(query["_id"])
-    print(unanswered)
+    print("Unanswered queries:", unanswered)
     return jsonify({"queries": unanswered}), 200
 
 @app.route('/api/delete-query/<query_id>', methods=['DELETE'])
@@ -663,6 +665,73 @@ def get_admin_stats():
         
     except Exception as e:
         print(f"Error fetching stats: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+import datetime  # make sure datetime is imported if not already
+
+@app.route('/api/admin/query-analytics', methods=['GET'])
+def get_query_analytics():
+    admin_token = request.headers.get('Authorization')
+    if not admin_token:
+        return jsonify({"error": "Authentication required"}), 401
+    try:
+        # Verify admin token
+        payload = jwt.decode(admin_token.split(' ')[1], app.config["SECRET_KEY"], algorithms=["HS256"])
+        if payload.get('role') != 'admin':
+            return jsonify({"error": "Admin access required"}), 403
+
+        # Query chat_history_collection to fetch all questions with timestamps
+        # (Here we assume questions from users are stored in "question")
+        queries = list(chat_history_collection.find({}, {"question": 1, "timestamp": 1}))
+
+        sentiment_by_date = defaultdict(list)
+        word_counter = Counter()
+        # A simple stopwords list – extend it as needed.
+        stopwords = set(["the", "is", "at", "on", "and", "a", "an", "to", "of", "in", "i", "you", "it"])
+
+        for record in queries:
+            question = record.get("question")
+            ts = record.get("timestamp")
+            if not question or not ts:
+                continue
+
+            # Convert the timestamp to date string:
+            if isinstance(ts, datetime.datetime):
+                date_str = ts.date().isoformat()
+            else:
+                date_str = str(ts).split("T")[0]
+
+            # Analyze sentiment using TextBlob
+            polarity = TextBlob(question).sentiment.polarity
+            sentiment_by_date[date_str].append(polarity)
+
+            # Count words for trending topics (do a simple word count)
+            for word in question.lower().split():
+                # Remove non-alphanumeric characters
+                word = ''.join([ch for ch in word if ch.isalnum()])
+                if word and word not in stopwords:
+                    word_counter[word] += 1
+
+        # Prepare sentiment analytics: average sentiment per date
+        sentiment_analytics = []
+        for date, polarities in sentiment_by_date.items():
+            avg_sentiment = sum(polarities) / len(polarities)
+            sentiment_analytics.append({
+                "date": date,
+                "avg_sentiment": avg_sentiment,
+                "count": len(polarities)
+            })
+
+        # Get trending topics – top 5 words
+        trending_topics = word_counter.most_common(5)
+
+        return jsonify({
+            "sentiment_analytics": sentiment_analytics,
+            "trending_topics": trending_topics
+        }), 200
+
+    except Exception as e:
+        print(f"Error in analytics endpoint: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
