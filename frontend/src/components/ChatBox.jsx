@@ -11,12 +11,15 @@ import { SkeletonDemo } from "./ui/SkeletonDemo";
 import { IoMdLogIn } from "react-icons/io";
 import { FaHistory } from "react-icons/fa";
 import axios from "axios";
+import { format } from "date-fns";
 
 function ChatBox({ onClose }) {
   const navigate = useNavigate();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [chatHistory, setChatHistory] = useState([]);
+  const [userChatHistory, setUserChatHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [showConversation, setShowConversation] = useState(false);
   const conversationRef = useRef(null);
@@ -47,8 +50,25 @@ function ChatBox({ onClose }) {
     setShowHistory(false);
   };
 
-  const handleHistoryClick = () => {
-    setShowHistory(!showHistory);
+  const handleHistoryClick = async () => {
+    const newState = !showHistory;
+    setShowHistory(newState);
+    
+    // Only fetch history if we're showing history and we haven't loaded it yet
+    if (newState && isLoggedIn && userChatHistory.length === 0) {
+      setHistoryLoading(true);
+      try {
+        const token = localStorage.getItem("userToken");
+        const response = await axios.get("/api/chat-history", {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setUserChatHistory(response.data.history || []);
+      } catch (error) {
+        console.error("Error fetching chat history:", error);
+      } finally {
+        setHistoryLoading(false);
+      }
+    }
   };
 
   const handleSendMessage = async () => {
@@ -148,17 +168,30 @@ function ChatBox({ onClose }) {
           </Button>
         </div>
 
-        {/* <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 overflow-y-auto p-4">
           {showHistory ? (
             isLoggedIn ? (
-              <div className="space-y-4">
-                {chatHistory.map((chat) => (
-                  <div key={chat.id} className="bg-gray-800 rounded-lg p-3">
-                    <p className="text-blue-400 font-medium">Query: {chat.query}</p>
-                    <p className="text-white mt-2">Response: {chat.response}</p>
-                  </div>
-                ))}
-              </div>
+              historyLoading ? (
+                <div className="flex justify-center items-center h-full">
+                  <SkeletonDemo />
+                </div>
+              ) : userChatHistory.length > 0 ? (
+                <div className="space-y-4">
+                  {userChatHistory.map((chat) => (
+                    <div key={chat._id} className="bg-gray-800 rounded-lg p-3">
+                      <div className="text-gray-400 text-sm mb-2">
+                        {format(new Date(chat.timestamp), 'MMM d, yyyy h:mm a')}
+                      </div>
+                      <p className="text-blue-400 font-medium">Question: {chat.question}</p>
+                      <p className="text-white mt-2">Answer: {chat.answer}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center text-white py-4">
+                  No chat history found
+                </div>
+              )
             ) : (
               <div className="text-center text-white py-4">
                 Please login to see chat history
@@ -171,6 +204,18 @@ function ChatBox({ onClose }) {
                 </Button>
               </div>
             )
+          ) : showConversation ? (
+            <div
+              ref={conversationRef}
+              className="space-y-4"
+            >
+              {chatHistory.map((chat, index) => (
+                <div key={index} className="bg-gray-800 rounded-lg p-3">
+                  <p className="text-blue-400 font-medium">Query: {chat.query}</p>
+                  <p className="text-white mt-2">Response: {chat.response}</p>
+                </div>  
+              ))}
+            </div>
           ) : (
             <>
               <div className="mt-3">
@@ -181,37 +226,8 @@ function ChatBox({ onClose }) {
               </div>
             </>
           )}
-        </div> */}
-
-        {showConversation ? (
-          <div
-            ref={conversationRef}
-            className="space-y-4 overflow-y-auto"
-            style={{
-              scrollbarWidth: "none" /* Firefox */,
-              msOverflowStyle: "none" /* IE and Edge */
-            }}
-          >
-            {console.log(chatHistory)}
-          {chatHistory.map((chat) => (
-            <div key={chat.query.length} className="bg-gray-800 rounded-lg p-3">
-              <p className="text-blue-400 font-medium">Query: {chat.query}</p>
-              <p className="text-white mt-2">Response: {chat.response}</p>
-            </div>  
-          ))}
         </div>
-        ) : (
-          <>
-            <div className="mt-3">
-              <SkeletonDemo className="mt-3" />
-            </div>
-            <div className="mt-3">
-              <SkeletonDemo className="mt-3" />
-            </div>
-          </>
-        )}
         
-        {/* <div className="p-4 "> */}
         <div className="mt-auto p-4">
           <div className="flex gap-2 items-end">
             <div className="flex-1">
