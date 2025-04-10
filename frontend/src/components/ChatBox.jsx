@@ -10,16 +10,71 @@ import { IoMdSettings, IoMdLogOut } from "react-icons/io";
 import { SkeletonDemo } from "./ui/SkeletonDemo";
 import { IoMdLogIn } from "react-icons/io";
 import { FaHistory } from "react-icons/fa";
+import { BiExpandAlt, BiCollapseAlt } from "react-icons/bi"; // Added resize icons
 import axios from "axios";
+import { format } from "date-fns";
 
 function ChatBox({ onClose }) {
   const navigate = useNavigate();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [chatHistory, setChatHistory] = useState([]);
+  const [userChatHistory, setUserChatHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [showConversation, setShowConversation] = useState(false);
   const conversationRef = useRef(null);
+  const chatBoxRef = useRef(null);
+  
+  // New state for chatbot size and position
+  const [size, setSize] = useState(() => {
+    const savedSize = localStorage.getItem('chatbotSize');
+    // Ensure initial size is within limits
+    const defaultSize = { width: 40, height: 80 };
+    if (savedSize) {
+      const parsedSize = JSON.parse(savedSize);
+      return { 
+        width: Math.max(parsedSize.width, 40), // Minimum width is now 40%
+        height: Math.max(parsedSize.height, 50) // Minimum height is now 50%
+      };
+    }
+    return defaultSize;
+  });
+  
+  // Track window dimensions for responsive positioning
+  const [windowDimensions, setWindowDimensions] = useState({
+    height: window.innerHeight,
+    width: window.innerWidth
+  });
+
+  // Update window dimensions when resized
+  useEffect(() => {
+    function handleResize() {
+      setWindowDimensions({
+        height: window.innerHeight,
+        width: window.innerWidth
+      });
+    }
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Adjust position if necessary when size changes
+  useEffect(() => {
+    if (chatBoxRef.current) {
+      const rect = chatBoxRef.current.getBoundingClientRect();
+      if (rect.top < 0) {
+        // If the top is off-screen, adjust position
+        chatBoxRef.current.style.bottom = 'auto';
+        chatBoxRef.current.style.top = '10px';
+      } else {
+        // Default positioning from bottom - moved closer to bottom
+        chatBoxRef.current.style.bottom = '2rem'; // Changed from 6rem to 2rem
+        chatBoxRef.current.style.top = 'auto';
+      }
+    }
+  }, [size, windowDimensions]);
 
   useEffect(() => {
     // Check if user is logged in
@@ -32,6 +87,11 @@ function ChatBox({ onClose }) {
       conversationRef.current.scrollTop = conversationRef.current.scrollHeight;
     }
   }, [chatHistory, showConversation]);
+  
+  // Save size preferences to localStorage
+  useEffect(() => {
+    localStorage.setItem('chatbotSize', JSON.stringify(size));
+  }, [size]);
 
   const handleSettingsClick = () => {
     navigate("/admin");
@@ -46,9 +106,49 @@ function ChatBox({ onClose }) {
     setIsLoggedIn(false);
     setShowHistory(false);
   };
+  
+  // Size adjustment functions with screen boundary check
+  const increaseSize = () => {
+    setSize(prevSize => {
+      const newHeight = Math.min(prevSize.height + 5, 95);
+      
+      // Calculate if new height would fit in viewport
+      const availableHeight = windowDimensions.height - 32; // Changed from 96 to 32 (2rem)
+      const maxHeight = (availableHeight / windowDimensions.height) * 100;
+      
+      return {
+        width: Math.min(prevSize.width + 5, 80),
+        height: Math.min(newHeight, maxHeight)
+      };
+    });
+  };
+  
+  const decreaseSize = () => {
+    setSize(prevSize => ({
+      width: Math.max(prevSize.width - 5, 40),  // Increased from 30 to 40
+      height: Math.max(prevSize.height - 5, 50)  // Increased from 40 to 50
+    }));
+  };
 
-  const handleHistoryClick = () => {
-    setShowHistory(!showHistory);
+  const handleHistoryClick = async () => {
+    const newState = !showHistory;
+    setShowHistory(newState);
+    
+    // Only fetch history if we're showing history and we haven't loaded it yet
+    if (newState && isLoggedIn && userChatHistory.length === 0) {
+      setHistoryLoading(true);
+      try {
+        const token = localStorage.getItem("userToken");
+        const response = await axios.get("/api/chat-history", {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setUserChatHistory(response.data.history || []);
+      } catch (error) {
+        console.error("Error fetching chat history:", error);
+      } finally {
+        setHistoryLoading(false);
+      }
+    }
   };
 
   const handleSendMessage = async () => {
@@ -86,7 +186,16 @@ function ChatBox({ onClose }) {
   };
 
   return (
-    <div className="fixed bottom-24 right-8 h-[80%] w-[40%]">
+    <div 
+      ref={chatBoxRef}
+      className="fixed right-8" 
+      style={{ 
+        height: `${size.height}%`, 
+        width: `${size.width}%`, 
+        bottom: '2rem', // Changed from 6rem to 2rem
+        transition: 'all 0.3s ease'
+      }}
+    >
       <SpotlightCard
         className="custom-spotlight-card h-full flex flex-col"
         spotlightColor="rgba(0, 229, 255, 0.2)"
@@ -111,54 +220,89 @@ function ChatBox({ onClose }) {
             Welcome to Sahayak
           </GradientText>
 
-          {isLoggedIn ? (
+          <div className="flex items-center space-x-1">
+            {/* Resize buttons */}
             <Button
               variant="ghost"
               size="icon"
-              onClick={handleLogout}
-              className="text-pink-500 text-3xl hover:bg-pink-800 hover:text-white"
+              onClick={decreaseSize}
+              className="text-yellow-500 hover:bg-yellow-800 hover:text-white"
+              title="Decrease size"
             >
-              <IoMdLogOut />
+              <BiCollapseAlt className="h-5 w-5" />
             </Button>
-          ) : (
             <Button
               variant="ghost"
               size="icon"
-              onClick={handleLoginClick}
-              className="text-pink-500 text-3xl hover:bg-pink-800 hover:text-white"
+              onClick={increaseSize}
+              className="text-yellow-500 hover:bg-yellow-800 hover:text-white"
+              title="Increase size"
             >
-              <IoMdLogIn />
+              <BiExpandAlt className="h-5 w-5" />
             </Button>
-          )}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleSettingsClick}
-            className="text-blue-500 text-3xl hover:bg-blue-800 hover:text-white"
-          >
-            <IoMdSettings />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onClose}
-            className="text-red-500 hover:bg-red-800 hover:text-white"
-          >
-            <IoClose className="h-6 w-6" />
-          </Button>
+
+            {isLoggedIn ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleLogout}
+                className="text-pink-500 text-3xl hover:bg-pink-800 hover:text-white"
+              >
+                <IoMdLogOut />
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleLoginClick}
+                className="text-pink-500 text-3xl hover:bg-pink-800 hover:text-white"
+              >
+                <IoMdLogIn />
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleSettingsClick}
+              className="text-blue-500 text-3xl hover:bg-blue-800 hover:text-white"
+            >
+              <IoMdSettings />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              className="text-red-500 hover:bg-red-800 hover:text-white"
+            >
+              <IoClose className="h-6 w-6" />
+            </Button>
+          </div>
         </div>
 
-        {/* <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 overflow-y-auto p-4">
           {showHistory ? (
             isLoggedIn ? (
-              <div className="space-y-4">
-                {chatHistory.map((chat) => (
-                  <div key={chat.id} className="bg-gray-800 rounded-lg p-3">
-                    <p className="text-blue-400 font-medium">Query: {chat.query}</p>
-                    <p className="text-white mt-2">Response: {chat.response}</p>
-                  </div>
-                ))}
-              </div>
+              historyLoading ? (
+                <div className="flex justify-center items-center h-full">
+                  <SkeletonDemo />
+                </div>
+              ) : userChatHistory.length > 0 ? (
+                <div className="space-y-4">
+                  {userChatHistory.map((chat) => (
+                    <div key={chat._id} className="bg-gray-800 rounded-lg p-3">
+                      <div className="text-gray-400 text-sm mb-2">
+                        {format(new Date(chat.timestamp), 'MMM d, yyyy h:mm a')}
+                      </div>
+                      <p className="text-blue-400 font-medium">Question: {chat.question}</p>
+                      <p className="text-white mt-2">Answer: {chat.answer}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center text-white py-4">
+                  No chat history found
+                </div>
+              )
             ) : (
               <div className="text-center text-white py-4">
                 Please login to see chat history
@@ -171,6 +315,18 @@ function ChatBox({ onClose }) {
                 </Button>
               </div>
             )
+          ) : showConversation ? (
+            <div
+              ref={conversationRef}
+              className="space-y-4"
+            >
+              {chatHistory.map((chat, index) => (
+                <div key={index} className="bg-gray-800 rounded-lg p-3">
+                  <p className="text-blue-400 font-medium">Query: {chat.query}</p>
+                  <p className="text-white mt-2">Response: {chat.response}</p>
+                </div>  
+              ))}
+            </div>
           ) : (
             <>
               <div className="mt-3">
@@ -181,37 +337,8 @@ function ChatBox({ onClose }) {
               </div>
             </>
           )}
-        </div> */}
-
-        {showConversation ? (
-          <div
-            ref={conversationRef}
-            className="space-y-4 overflow-y-auto"
-            style={{
-              scrollbarWidth: "none" /* Firefox */,
-              msOverflowStyle: "none" /* IE and Edge */
-            }}
-          >
-            {console.log(chatHistory)}
-          {chatHistory.map((chat) => (
-            <div key={chat.query.length} className="bg-gray-800 rounded-lg p-3">
-              <p className="text-blue-400 font-medium">Query: {chat.query}</p>
-              <p className="text-white mt-2">Response: {chat.response}</p>
-            </div>  
-          ))}
         </div>
-        ) : (
-          <>
-            <div className="mt-3">
-              <SkeletonDemo className="mt-3" />
-            </div>
-            <div className="mt-3">
-              <SkeletonDemo className="mt-3" />
-            </div>
-          </>
-        )}
         
-        {/* <div className="p-4 "> */}
         <div className="mt-auto p-4">
           <div className="flex gap-2 items-end">
             <div className="flex-1">
