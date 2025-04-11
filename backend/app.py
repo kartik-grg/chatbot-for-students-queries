@@ -28,6 +28,7 @@ from time import time
 from difflib import SequenceMatcher
 from textblob import TextBlob
 from collections import defaultdict, Counter
+from flask_mail import Mail, Message
 
 # Load environment variables
 load_dotenv()
@@ -40,6 +41,15 @@ os.environ["LANGCHAIN_ENDPOINT"] = "https://api.smith.langchain.com"
 
 app = Flask(__name__)
 CORS(app)
+
+# Configure Flask-Mail
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'  # or another SMTP
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = os.getenv("EMAIL_USER")
+app.config['MAIL_PASSWORD'] = os.getenv("EMAIL_PASS")
+
+mail = Mail(app)
 
 app.config["SECRET_KEY"] = "your_secret_key"  # Use a secure secret key
 
@@ -359,9 +369,23 @@ def query():
         
         if any(phrase in answer.lower() for phrase in no_answer_phrases):
             print("No answer found - adding to unanswered queries")
+            # Default user_id to None
+            user_id = None
+            
+            if user_token:
+                try:
+                    # Decode token to get user_id
+                    payload = jwt.decode(user_token.split(' ')[1], 
+                                    app.config["SECRET_KEY"], 
+                                    algorithms=["HS256"])
+                    user_id = ObjectId(payload.get('user_id'))
+                except Exception as e:
+                    print(f"Error decoding token for unanswered query: {str(e)}")
+
             queries_collection.insert_one({
                 "question": question, 
                 "answered": False,
+                "user_id": user_id,
                 "timestamp": datetime.datetime.utcnow()
             })
             return jsonify({
@@ -419,6 +443,8 @@ def get_unanswered_queries():
     unanswered = list(queries_collection.find({"answered": False}))
     for query in unanswered:
         query["_id"] = str(query["_id"])
+    if "user_id" in query and query["user_id"] is not None:
+            query["user_id"] = str(query["user_id"])  # Convert ObjectId to string
     print("Unanswered queries:", unanswered)
     return jsonify({"queries": unanswered}), 200
 
@@ -528,6 +554,8 @@ def add_response():
     query_doc = queries_collection.find_one({"_id": ObjectId(query_id)})
     if not query_doc:
         return jsonify({"error": "Query not found"}), 404
+    
+    user_id = query_doc.get("user_id")
 
     # Update database
     queries_collection.update_one(
@@ -551,6 +579,31 @@ def add_response():
         except Exception as e:
             print(f"Error updating vectorstore: {str(e)}")
             # Continue even if vectorstore update fails
+
+    # ✅ Notify user via email
+    try:
+        if user_id:
+            user = users_collection.find_one({"_id": ObjectId(user_id)})
+            if user and user.get("email"):
+                email = user["email"]
+                msg = Message(
+                    subject="Your query has been answered!",
+                    sender=app.config["MAIL_USERNAME"],
+                    recipients=[email],
+                    body=f"""Hello,
+
+Your question: "{query_doc['question']}"
+Has been answered: "{response}"
+
+Thank you for your patience!
+
+- Sahayak: The Support Team
+"""
+                )
+                mail.send(msg)
+                print(f"Email sent to {email}")
+    except Exception as e:
+        print(f"Error sending email: {str(e)}")
     
     return jsonify({"message": "Response added successfully"})
 
