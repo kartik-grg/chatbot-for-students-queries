@@ -31,7 +31,7 @@ from collections import defaultdict, Counter
 from flask_mail import Mail, Message
 
 # Load environment variables
-load_dotenv()
+load_dotenv()   
 GOOGLE_API_KEY = os.environ["GOOGLE_API_KEY"]
 LANGSMITH_API_KEY = os.environ["LANGSMITH_API_KEY"]
 
@@ -443,8 +443,8 @@ def get_unanswered_queries():
     unanswered = list(queries_collection.find({"answered": False}))
     for query in unanswered:
         query["_id"] = str(query["_id"])
-    if "user_id" in query and query["user_id"] is not None:
-            query["user_id"] = str(query["user_id"])  # Convert ObjectId to string
+        if query.get("user_id"):  # Check if user_id exists in the query
+            query["user_id"] = str(query["user_id"])
     print("Unanswered queries:", unanswered)
     return jsonify({"queries": unanswered}), 200
 
