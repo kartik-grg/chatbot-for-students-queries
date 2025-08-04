@@ -456,7 +456,10 @@ function ChatBox({ onClose }) {
                 <div key={index} className="space-y-3">
                   {/* User message */}
                   <div className="bg-blue-800 rounded-lg p-3 ml-28">
-                    <p className="text-white font-medium">You: {chat.query}</p>
+                    <p className="font-medium">
+                      <span className="text-red-400 mr-1">You:</span>
+                      <span className="text-white"> {chat.query}</span>
+                    </p>
                     <div className="text-blue-200 text-xs mt-1">
                       {chat.timestamp && format(new Date(chat.timestamp), 'h:mm a')}
                     </div>
