@@ -22,6 +22,19 @@ class AuthService:
             
             # Create user
             user_id = self.user_model.create_user(username, email, hashed_password)
+
+            # Send email notification if user exists
+            if user_id:
+                try:
+                    from flask import current_app
+                    email_service = current_app.config.get('EMAIL_SERVICE')
+                    if email_service:
+                        email_service.send_welcome_email(email, username)
+                        print("Email sent successfully")
+                    else:
+                        print("Email service not found in app config")
+                except Exception as e:
+                    print(f"Error sending email: {str(e)}")
             
             return {"message": "User registered successfully", "user_id": str(user_id)}, 201
             
