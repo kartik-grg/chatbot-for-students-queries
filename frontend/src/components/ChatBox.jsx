@@ -24,6 +24,7 @@ function ChatBox({ onClose }) {
   const [message, setMessage] = useState("");
   const [showConversation, setShowConversation] = useState(false);
   const [isTyping, setIsTyping] = useState(false); // Add loading state
+  const [typingText, setTypingText] = useState({}); // Add state for typing text animation
   const conversationRef = useRef(null);
   const chatBoxRef = useRef(null);
   const messagesEndRef = useRef(null); // New ref for scroll target
@@ -184,13 +185,14 @@ function ChatBox({ onClose }) {
     if (!message.trim() || isTyping) return;
 
     const currentMessage = message;
+    const messageId = Date.now().toString(); // Create unique ID for this message
     setMessage(""); // Clear input immediately
     setIsTyping(true); // Start loading state
     
-    // Add user message to chat history immediately
+    // Add user message to chat history immediately with ID
     setChatHistory((prev) => [
       ...prev,
-      { query: currentMessage, response: null, timestamp: new Date() },
+      { id: messageId, query: currentMessage, response: null, timestamp: new Date() },
     ]);
     setShowConversation(true);
     
@@ -210,30 +212,50 @@ function ChatBox({ onClose }) {
         }
       );
 
+      // Get the response text
+      const responseText = response.data.answer || "No answer found";
+      
       // Update the last message with the response
       setChatHistory((prev) => {
         const updated = [...prev];
-        updated[updated.length - 1].response = response.data.answer || "No answer found";
+        updated[updated.length - 1].response = responseText;
         return updated;
       });
+      
+      // Start typing animation for this response
+      setTypingText(prev => ({
+        ...prev,
+        [messageId]: {
+          text: responseText,
+          displayedChars: 0,
+          completed: false
+        }
+      }));
       
       // Force scroll after response is added
       setTimeout(scrollToBottom, 50);
     } catch (error) {
-      if (error.response && error.response.status === 404) {
-        setChatHistory((prev) => {
-          const updated = [...prev];
-          updated[updated.length - 1].response = "No answer found. Your query has been logged.";
-          return updated;
-        });
-      } else {
-        console.error("Error sending message:", error);
-        setChatHistory((prev) => {
-          const updated = [...prev];
-          updated[updated.length - 1].response = "Sorry, something went wrong. Please try again.";
-          return updated;
-        });
-      }
+      const errorResponse = error.response && error.response.status === 404
+        ? "No answer found. Your query has been logged."
+        : "Sorry, something went wrong. Please try again.";
+      
+      // Update the last message with the error response
+      setChatHistory((prev) => {
+        const updated = [...prev];
+        updated[updated.length - 1].response = errorResponse;
+        updated[updated.length - 1].id = messageId;
+        return updated;
+      });
+      
+      // Start typing animation for the error response too
+      setTypingText(prev => ({
+        ...prev,
+        [messageId]: {
+          text: errorResponse,
+          displayedChars: 0,
+          completed: false
+        }
+      }));
       
       // Force scroll after error response is added
       setTimeout(scrollToBottom, 50);
@@ -244,7 +266,40 @@ function ChatBox({ onClose }) {
     }
   };
 
-  // Typing indicator component
+  // Handle typing animation
+  useEffect(() => {
+    const typingTimers = {};
+    
+    // Process each typing animation
+    Object.keys(typingText).forEach(id => {
+      const data = typingText[id];
+      
+      // If animation is not complete
+      if (!data.completed && data.displayedChars < data.text.length) {
+        // Set timer to add next character
+        typingTimers[id] = setTimeout(() => {
+          setTypingText(prev => ({
+            ...prev,
+            [id]: {
+              ...prev[id],
+              displayedChars: prev[id].displayedChars + 1,
+              // Mark as completed if this is the last character
+              completed: prev[id].displayedChars + 1 >= prev[id].text.length
+            }
+          }));
+          
+          // Scroll down as text appears
+          scrollToBottom();
+        }, Math.random() * 25 + 15); // Random delay between 15-40ms for natural typing effect
+      }
+    });
+    
+    // Clean up timers when component unmounts or typing state changes
+    return () => {
+      Object.values(typingTimers).forEach(timer => clearTimeout(timer));
+    };
+  }, [typingText]);
+
   const TypingIndicator = () => (
     <div className="bg-gray-800 rounded-lg p-3 animate-pulse">
       <p className="text-blue-400 font-medium">Sahayak is thinking...</p>
@@ -411,7 +466,19 @@ function ChatBox({ onClose }) {
                   {chat.response ? (
                     <div className="bg-gray-800 rounded-lg p-3 mr-28">
                       <p className="text-green-400 font-medium">Sahayak:</p>
-                      <p className="text-white mt-2">{chat.response}</p>
+                      <p className="text-white mt-2">
+                        {/* Show typing animation if this message has an ID and is in typingText state */}
+                        {chat.id && typingText[chat.id] ? (
+                          <>
+                            {typingText[chat.id].text.substring(0, typingText[chat.id].displayedChars)}
+                            {!typingText[chat.id].completed && (
+                              <span className="inline-block w-2 h-4 bg-blue-400 ml-1 animate-pulse"></span>
+                            )}
+                          </>
+                        ) : (
+                          chat.response
+                        )}
+                      </p>
                     </div>
                   ) : (
                     <div className="mr-8">
