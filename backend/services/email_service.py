@@ -100,12 +100,12 @@ Thank you for your patience!
             
             email_body = f"""Hello {clean_username},
 
-Welcome to our Student Query Chatbot platform!
+Welcome aboard! we are excited to have you join the Student Query Chatbot platform - your personal assisstant for all academic queries.
 
-You can now:
-- Ask academic questions
-- Get instant responses
-- View your chat history
+Here is what you can do now:
+- Ask academic questions anytime, anywhere
+- Get instant, accurate responses
+- Access your chat history
 - Receive email notifications
 
 Thank you for joining us!
