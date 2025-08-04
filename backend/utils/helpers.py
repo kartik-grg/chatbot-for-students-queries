@@ -2,6 +2,7 @@ from difflib import SequenceMatcher
 from textblob import TextBlob
 from collections import defaultdict, Counter
 import datetime
+import re
 
 def similar(a, b):
     """Calculate similarity ratio between two strings"""
@@ -34,23 +35,31 @@ def is_general_chat(text):
     
     text_lower = text.lower().strip()
     
-    # Check for matches with similarity threshold
+    # Check for matches with word boundaries
     for category in general_phrases.values():
         for pattern in category['patterns']:
-            # Check if pattern is fully contained in text
-            if pattern in text_lower:
-                return category['response']
+            # For single words, use word boundaries to avoid partial matches
+            if ' ' not in pattern:
+                # Use regex word boundary for single words
+                if re.search(r'\b' + re.escape(pattern) + r'\b', text_lower):
+                    return category['response']
+            else:
+                # For phrases, check if the entire phrase is present
+                if pattern in text_lower:
+                    return category['response']
             
-            # Check for similar patterns with 0.85 similarity threshold
-            if len(text_lower) <= len(pattern) * 1.5 and similar(text_lower, pattern) > 0.85:
-                return category['response']
-            
-            # Check for partial matches in longer sentences
+            # Only check similarity for very short inputs (1-3 words)
             words = text_lower.split()
-            if len(words) <= 4:  # Only check short phrases
-                for word in words:
-                    if similar(word, pattern) > 0.9:
-                        return category['response']
+            if len(words) <= 3 and len(text_lower) <= 20:
+                if similar(text_lower, pattern) > 0.85:
+                    return category['response']
+    
+    # Special check for standalone greetings
+    words = text_lower.split()
+    if len(words) == 1 and words[0] in ['hi', 'hello', 'hey', 'bye']:
+        for category in general_phrases.values():
+            if words[0] in category['patterns']:
+                return category['response']
     
     return None
 
