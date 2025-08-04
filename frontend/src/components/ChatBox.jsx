@@ -8,7 +8,7 @@ import { Label } from "./ui/label";
 import GradientText from "./ui/GradientText";
 import { IoMdSettings } from "react-icons/io";
 import { SkeletonDemo } from "./ui/SkeletonDemo";
-import { FaHistory } from "react-icons/fa";
+import { FaHistory, FaCalendarAlt, FaChevronDown, FaChevronUp } from "react-icons/fa";
 import { BiExpandAlt, BiCollapseAlt } from "react-icons/bi"; // Added resize icons
 import { FiLogOut, FiLogIn } from "react-icons/fi"; // More distinct login/logout icons
 import axios from "axios";
@@ -25,6 +25,7 @@ function ChatBox({ onClose }) {
   const [showConversation, setShowConversation] = useState(false);
   const [isTyping, setIsTyping] = useState(false); // Add loading state
   const [typingText, setTypingText] = useState({}); // Add state for typing text animation
+  const [expandedChat, setExpandedChat] = useState(null); // Track expanded history item
   const conversationRef = useRef(null);
   const chatBoxRef = useRef(null);
   const messagesEndRef = useRef(null); // New ref for scroll target
@@ -311,6 +312,28 @@ function ChatBox({ onClose }) {
     </div>
   );
 
+  // Group chat history by date
+  const groupChatHistoryByDate = (history) => {
+    const grouped = {};
+    
+    if (history && history.length > 0) {
+      history.forEach(chat => {
+        const date = format(new Date(chat.timestamp), 'yyyy-MM-dd');
+        if (!grouped[date]) {
+          grouped[date] = [];
+        }
+        grouped[date].push(chat);
+      });
+    }
+    
+    return grouped;
+  };
+  
+  // Toggle expanded chat in history
+  const toggleExpandChat = (chatId) => {
+    setExpandedChat(expandedChat === chatId ? null : chatId);
+  };
+  
   return (
     <div 
       ref={chatBoxRef}
@@ -415,36 +438,100 @@ function ChatBox({ onClose }) {
             isLoggedIn ? (
               historyLoading ? (
                 <div className="flex justify-center items-center h-full">
-                  <SkeletonDemo />
+                  <div className="animate-pulse space-y-6 w-full">
+                    <div className="h-6 bg-gray-700 rounded w-1/3"></div>
+                    <div className="space-y-3 w-full">
+                      <div className="h-20 bg-gray-800 rounded-lg w-full"></div>
+                      <div className="h-20 bg-gray-800 rounded-lg w-full"></div>
+                      <div className="h-20 bg-gray-800 rounded-lg w-full"></div>
+                    </div>
+                  </div>
                 </div>
               ) : userChatHistory.length > 0 ? (
-                <div className="space-y-4">
-                  {userChatHistory.map((chat) => (
-                    <div key={chat._id} className="bg-gray-800 rounded-lg p-3">
-                      <div className="text-gray-400 text-sm mb-2">
-                        {format(new Date(chat.timestamp), 'MMM d, yyyy h:mm a')}
+                <div className="space-y-6">
+                  <h2 className="text-xl text-white flex items-center font-medium">
+                    <FaCalendarAlt className="mr-2 text-blue-400" />
+                    Chat History
+                  </h2>
+                  
+                  {Object.entries(groupChatHistoryByDate(userChatHistory)).map(([date, chats]) => (
+                    <div key={date} className="mb-4">
+                      <div className="text-blue-300 font-medium mb-2 border-b border-gray-700 pb-1">
+                        {format(new Date(date), 'EEEE, MMMM d, yyyy')}
                       </div>
-                      <p className="text-blue-400 font-medium">Question: {chat.question}</p>
-                      <p className="text-white mt-2">Answer: {chat.answer}</p>
+                      
+                      <div className="space-y-3">
+                        {chats.map((chat) => (
+                          <div 
+                            key={chat._id} 
+                            className="bg-gray-800 rounded-lg p-3 hover:border-blue-500 border border-transparent transition-all duration-200 cursor-pointer"
+                            onClick={() => toggleExpandChat(chat._id)}
+                          >
+                            <div className="flex justify-between items-start">
+                              <div className="flex items-start">
+                                <span className="text-red-400 mr-2 font-medium">You:</span>
+                                <span className="text-white">
+                                  {chat.question.length > 60 && expandedChat !== chat._id 
+                                    ? `${chat.question.substring(0, 60)}...` 
+                                    : chat.question}
+                                </span>
+                              </div>
+                              <div className="flex items-center">
+                                <div className="text-gray-400 text-xs mr-2">
+                                  {format(new Date(chat.timestamp), 'h:mm a')}
+                                </div>
+                                {expandedChat === chat._id ? 
+                                  <FaChevronUp className="text-blue-400" /> : 
+                                  <FaChevronDown className="text-blue-400" />
+                                }
+                              </div>
+                            </div>
+                            
+                            {expandedChat === chat._id && (
+                              <div className="mt-3 pt-3 border-t border-gray-700">
+                                <div className="mb-3">
+                                  <div className="text-blue-400 text-sm font-medium mb-1">Question:</div>
+                                  <div className="text-white bg-blue-800/30 p-2 rounded-md">{chat.question}</div>
+                                </div>
+                                <div>
+                                  <div className="text-green-400 text-sm font-medium mb-1">Answer:</div>
+                                  <div className="text-white bg-gray-700/50 p-2 rounded-md">{chat.answer}</div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="text-center text-white py-4">
-                  No chat history found
+                <div className="text-center flex flex-col items-center justify-center h-full">
+                  <div className="bg-gray-800 rounded-lg p-6 shadow-lg max-w-md">
+                    <div className="text-blue-400 text-4xl mb-4 opacity-60">
+                      <FaCalendarAlt />
+                    </div>
+                    <h3 className="text-white text-xl mb-2">No chat history found</h3>
+                    <p className="text-gray-400">Your conversations will appear here after you start chatting</p>
+                  </div>
                 </div>
               )
             ) : (
-              <div className="text-center text-white py-4">
-                Please login to see chat history
-                <Button
-                  variant="ghost"
-                  onClick={handleLoginClick}
-                  className="ml-2 text-pink-500 hover:bg-pink-800 hover:text-white"
-                  title="Log in to view history"
-                >
-                  Login
-                </Button>
+              <div className="text-center flex flex-col items-center justify-center h-full">
+                <div className="bg-gray-800 rounded-lg p-6 shadow-lg max-w-md">
+                  <div className="text-pink-500 text-4xl mb-4 opacity-60">
+                    <FiLogIn />
+                  </div>
+                  <h3 className="text-white text-xl mb-4">Please login to see chat history</h3>
+                  <Button
+                    variant="outline"
+                    onClick={handleLoginClick}
+                    className="text-pink-500 hover:bg-pink-800 hover:text-white border-pink-500"
+                    title="Log in to view history"
+                  >
+                    Login
+                  </Button>
+                </div>
               </div>
             )
           ) : showConversation ? (
