@@ -23,8 +23,10 @@ function ChatBox({ onClose }) {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [showConversation, setShowConversation] = useState(false);
+  const [isTyping, setIsTyping] = useState(false); // Add loading state
   const conversationRef = useRef(null);
   const chatBoxRef = useRef(null);
+  const messagesEndRef = useRef(null); // New ref for scroll target
   
   // New state for chatbot size and position
   const [size, setSize] = useState(() => {
@@ -93,6 +95,33 @@ function ChatBox({ onClose }) {
     localStorage.setItem('chatbotSize', JSON.stringify(size));
   }, [size]);
 
+  // Improved scroll to bottom function
+  const scrollToBottom = () => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+  
+  // Enhanced auto-scrolling with MutationObserver
+  useEffect(() => {
+    // Scroll immediately when chat history changes
+    scrollToBottom();
+    
+    // Set up mutation observer to detect content changes and scroll
+    if (conversationRef.current) {
+      const observer = new MutationObserver(scrollToBottom);
+      
+      // Observe both child additions and attribute changes
+      observer.observe(conversationRef.current, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+      });
+      
+      return () => observer.disconnect();
+    }
+  }, [chatHistory, showConversation, isTyping]);
+
   const handleSettingsClick = () => {
     navigate("/admin");
   };
@@ -152,13 +181,27 @@ function ChatBox({ onClose }) {
   };
 
   const handleSendMessage = async () => {
-    if (!message.trim()) return;
+    if (!message.trim() || isTyping) return;
+
+    const currentMessage = message;
+    setMessage(""); // Clear input immediately
+    setIsTyping(true); // Start loading state
+    
+    // Add user message to chat history immediately
+    setChatHistory((prev) => [
+      ...prev,
+      { query: currentMessage, response: null, timestamp: new Date() },
+    ]);
+    setShowConversation(true);
+    
+    // Force immediate scroll after user message is added
+    setTimeout(scrollToBottom, 50);
 
     try {
       const token = localStorage.getItem("userToken");
       const response = await axios.post("/api/query", 
         {
-          question: message,
+          question: currentMessage,
         },
         {
           headers: { 
@@ -167,23 +210,51 @@ function ChatBox({ onClose }) {
         }
       );
 
-      setChatHistory((prev) => [
-        ...prev,
-        { query: message, response: response.data.answer || "No answer found" },
-      ]);
+      // Update the last message with the response
+      setChatHistory((prev) => {
+        const updated = [...prev];
+        updated[updated.length - 1].response = response.data.answer || "No answer found";
+        return updated;
+      });
+      
+      // Force scroll after response is added
+      setTimeout(scrollToBottom, 50);
     } catch (error) {
       if (error.response && error.response.status === 404) {
-        setChatHistory((prev) => [
-          ...prev,
-          { query: message, response: "No answer found. Your query has been logged." },
-        ]);
+        setChatHistory((prev) => {
+          const updated = [...prev];
+          updated[updated.length - 1].response = "No answer found. Your query has been logged.";
+          return updated;
+        });
       } else {
         console.error("Error sending message:", error);
+        setChatHistory((prev) => {
+          const updated = [...prev];
+          updated[updated.length - 1].response = "Sorry, something went wrong. Please try again.";
+          return updated;
+        });
       }
+      
+      // Force scroll after error response is added
+      setTimeout(scrollToBottom, 50);
+    } finally {
+      setIsTyping(false); // End loading state
+      // One final scroll after typing indicator is removed
+      setTimeout(scrollToBottom, 100);
     }
-    setShowConversation(true)
-    setMessage("");
   };
+
+  // Typing indicator component
+  const TypingIndicator = () => (
+    <div className="bg-gray-800 rounded-lg p-3 animate-pulse">
+      <p className="text-blue-400 font-medium">Sahayak is thinking...</p>
+      <div className="flex space-x-1 mt-2">
+        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+      </div>
+    </div>
+  );
 
   return (
     <div 
@@ -192,7 +263,7 @@ function ChatBox({ onClose }) {
       style={{ 
         height: `${size.height}%`, 
         width: `${size.width}%`, 
-        bottom: '2rem', // Changed from 6rem to 2rem
+        bottom: '2rem',
         transition: 'all 0.3s ease'
       }}
     >
@@ -327,11 +398,30 @@ function ChatBox({ onClose }) {
               className="space-y-4"
             >
               {chatHistory.map((chat, index) => (
-                <div key={index} className="bg-gray-800 rounded-lg p-3">
-                  <p className="text-blue-400 font-medium">Query: {chat.query}</p>
-                  <p className="text-white mt-2">Response: {chat.response}</p>
-                </div>  
+                <div key={index} className="space-y-3">
+                  {/* User message */}
+                  <div className="bg-blue-800 rounded-lg p-3 ml-28">
+                    <p className="text-white font-medium">You: {chat.query}</p>
+                    <div className="text-blue-200 text-xs mt-1">
+                      {chat.timestamp && format(new Date(chat.timestamp), 'h:mm a')}
+                    </div>
+                  </div>
+                  
+                  {/* Bot response or loading */}
+                  {chat.response ? (
+                    <div className="bg-gray-800 rounded-lg p-3 mr-28">
+                      <p className="text-green-400 font-medium">Sahayak:</p>
+                      <p className="text-white mt-2">{chat.response}</p>
+                    </div>
+                  ) : (
+                    <div className="mr-8">
+                      <TypingIndicator />
+                    </div>
+                  )}
+                </div>
               ))}
+              {/* Invisible element at the end to scroll to */}
+              <div ref={messagesEndRef} style={{ height: "1px" }} />
             </div>
           ) : (
             <>
@@ -352,23 +442,34 @@ function ChatBox({ onClose }) {
                 Your Query
               </Label>
               <Textarea
-                placeholder="Type your message here."
+                placeholder={isTyping ? "Please wait..." : "Type your message here."}
                 id="message"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 className="min-h-[50px] max-h-[100px] text-white"
+                disabled={isTyping}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
+                  if (e.key === "Enter" && !e.shiftKey && !isTyping) {
                     e.preventDefault();
                     handleSendMessage();
                   }
                 }}
               />
             </div>
-            <Button className="h-[50px] px-4" onClick={handleSendMessage} title="Send message">
+            <Button 
+              className={`h-[50px] px-4 ${isTyping ? 'opacity-50 cursor-not-allowed' : ''}`} 
+              onClick={handleSendMessage} 
+              disabled={isTyping}
+              title={isTyping ? "Generating response..." : "Send message"}
+            >
               <IoSend className="h-5 w-5" />
             </Button>
           </div>
+          {isTyping && (
+            <div className="text-center text-gray-400 text-sm mt-2">
+              Generating response...
+            </div>
+          )}
         </div>
       </SpotlightCard>
     </div>
