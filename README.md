@@ -163,9 +163,9 @@ SECRET_KEY=your_secure_random_secret_key
 FLASK_ENV=development
 PORT=5000
 
-# Admin Credentials (Change in production!)
-ADMIN_EMAIL=admin@example.com
-ADMIN_PASSWORD=admin123
+# Admin Credentials
+ADMIN_EMAIL=
+ADMIN_PASSWORD=
 ```
 
 6. **Add PDF documents to resources folder:**
