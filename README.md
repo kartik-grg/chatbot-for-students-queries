@@ -179,8 +179,6 @@ backend/resources/
 python app.py
 ```
 
-The backend server will run on `http://localhost:5000`
-
 ### 🎨 Frontend Setup
 
 1. **Navigate to frontend directory:**
@@ -277,11 +275,7 @@ chatbot-for-students-queries/
 - **CORS middleware** for secure API access
 - **Session timeout management**
 
-## 🎛️ Admin Access
-
-**Default Admin Credentials** (⚠️ Change in production):
-- Email: `admin@example.com`  
-- Password: `admin123`
+## 🎛️ Admin 
 
 ### Admin Capabilities:
 - View system statistics and analytics
@@ -333,22 +327,6 @@ The system uses **Retrieval-Augmented Generation** to provide accurate, context-
 2. Restart the application to rebuild embeddings
 3. System automatically processes and indexes new content
 
-## 🚀 Deployment
-
-### Production Checklist
-- [ ] Change default admin credentials
-- [ ] Set strong `SECRET_KEY`
-- [ ] Configure production MongoDB URI
-- [ ] Set up production email service
-- [ ] Enable HTTPS
-- [ ] Configure environment variables securely
-- [ ] Set `FLASK_ENV=production`
-
-### Using Gunicorn (Production Server)
-```bash
-pip install gunicorn
-gunicorn --bind 0.0.0.0:5000 app:app
-```
 
 ## 🤝 Contributing
 
@@ -376,13 +354,6 @@ This project is licensed under the **MIT License** - see the LICENSE file for de
 - **Email**: sahayak.iiitdmj@gmail.com
 - **GitHub Issues**: [Create an issue](https://github.com/Arnavkesari/chatbot-for-students-queries/issues)
 - **Documentation**: See `/docs` folder for detailed documentation
-
-## 🙏 Acknowledgments
-
-- **Google AI** for providing the Gemini API
-- **LangChain** community for the excellent framework
-- **MongoDB** for the robust database solution
-- **React & Vite** for the modern frontend stack
 
 ---
 
