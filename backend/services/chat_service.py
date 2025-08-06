@@ -81,7 +81,7 @@ class ChatService:
 
         conversation_chain = ConversationalRetrievalChain.from_llm(
             llm=llm,
-            retriever=self.vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": 8}),
+            retriever=self.vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": 12}),
             memory=memory,
             combine_docs_chain_kwargs={"prompt": ChatPromptTemplate.from_template(template)}
         )

@@ -237,7 +237,7 @@ function ChatBox({ onClose }) {
       setTimeout(scrollToBottom, 50);
     } catch (error) {
       const errorResponse = error.response && error.response.status === 404
-        ? "No answer found. Your query has been logged."
+        ? "We couldn't find an answer to your question at the moment. Don't worry — your query has been logged, and if you're logged in, you'll be notified as soon as we have a response."
         : "Sorry, something went wrong. Please try again.";
       
       // Update the last message with the error response
