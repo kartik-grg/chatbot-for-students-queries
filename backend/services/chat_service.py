@@ -20,7 +20,7 @@ You are a knowledgeable academic assistant helping students with their queries. 
 INSTRUCTIONS:
 - Answer based ONLY on the provided context
 - If the context doesn't contain enough information, respond with exactly "I do not know."
-- Provide clear, concise answers in 2-3 sentences
+- Provide clear, concise answers
 - Be helpful and professional in your tone
 - If multiple pieces of information are relevant, organize them clearly
 
@@ -75,13 +75,13 @@ class ChatService:
 
         llm = ChatGoogleGenerativeAI(
             model="gemini-1.5-flash",
-            temperature=0.1,
+            temperature=0.15,
             google_api_key=Config.GOOGLE_API_KEY
         )
 
         conversation_chain = ConversationalRetrievalChain.from_llm(
             llm=llm,
-            retriever=self.vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": 3}),
+            retriever=self.vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": 8}),
             memory=memory,
             combine_docs_chain_kwargs={"prompt": ChatPromptTemplate.from_template(template)}
         )
