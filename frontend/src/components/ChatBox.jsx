@@ -495,7 +495,10 @@ function ChatBox({ onClose }) {
                                 </div>
                                 <div>
                                   <div className="text-green-400 text-sm font-medium mb-1">Answer:</div>
-                                  <div className="text-white bg-gray-700/50 p-2 rounded-md">{chat.answer}</div>
+                                  <div 
+                                    className="text-white bg-gray-700/50 p-2 rounded-md chat-response"
+                                    dangerouslySetInnerHTML={{ __html: chat.answer }}
+                                  />
                                 </div>
                               </div>
                             )}
@@ -556,19 +559,21 @@ function ChatBox({ onClose }) {
                   {chat.response ? (
                     <div className="bg-gray-800 rounded-lg p-3 mr-28">
                       <p className="text-green-400 font-medium">Sahayak:</p>
-                      <p className="text-white mt-2">
+                      <div className="text-white mt-2 chat-response">
                         {/* Show typing animation if this message has an ID and is in typingText state */}
                         {chat.id && typingText[chat.id] ? (
                           <>
-                            {typingText[chat.id].text.substring(0, typingText[chat.id].displayedChars)}
+                            <span dangerouslySetInnerHTML={{ 
+                              __html: typingText[chat.id].text.substring(0, typingText[chat.id].displayedChars) 
+                            }} />
                             {!typingText[chat.id].completed && (
                               <span className="inline-block w-2 h-4 bg-blue-400 ml-1 animate-pulse"></span>
                             )}
                           </>
                         ) : (
-                          chat.response
+                          <span dangerouslySetInnerHTML={{ __html: chat.response }} />
                         )}
-                      </p>
+                      </div>
                     </div>
                   ) : (
                     <div className="mr-8">

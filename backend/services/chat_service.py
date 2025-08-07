@@ -8,6 +8,7 @@ from config.config import Config
 from models.models import Query, ChatHistory
 from utils.helpers import is_general_chat
 from utils.pdf_utils import update_vectorstore
+import re
 
 # Global variables for session management
 conversation_memories = {}  # Store conversation memories by session
@@ -39,6 +40,79 @@ class ChatService:
         self.query_model = Query()
         self.chat_history_model = ChatHistory()
     
+    def format_response(self, text):
+        """Format markdown-style text to HTML"""
+        if not text:
+            return text
+        
+        # Split text into lines for processing
+        lines = text.split('\n')
+        formatted_lines = []
+        in_list = False
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                if in_list:
+                    formatted_lines.append('')  # Empty line in list
+                else:
+                    formatted_lines.append('<br>')  # Line break outside list
+                continue
+            
+            # Convert headings
+            if line.startswith('### '):
+                line = f'<h3>{line[4:]}</h3>'
+                in_list = False
+            elif line.startswith('## '):
+                line = f'<h2>{line[3:]}</h2>'
+                in_list = False
+            elif line.startswith('# '):
+                line = f'<h1>{line[2:]}</h1>'
+                in_list = False
+            # Convert bullet points
+            elif re.match(r'^[\*\-\+] ', line):
+                if not in_list:
+                    formatted_lines.append('<ul>')
+                    in_list = 'ul'
+                line = f'<li>{line[2:]}</li>'
+            # Convert numbered lists
+            elif re.match(r'^\d+\. ', line):
+                if not in_list:
+                    formatted_lines.append('<ol>')
+                    in_list = 'ol'
+                line = f'<li>{re.sub(r"^\d+\. ", "", line)}</li>'
+            else:
+                # Close any open list
+                if in_list:
+                    formatted_lines.append(f'</{in_list}>')
+                    in_list = False
+            
+            # Apply text formatting
+            # Convert bold text (**text**)
+            line = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', line)
+            line = re.sub(r'__(.*?)__', r'<strong>\1</strong>', line)
+            
+            # Convert italic text (*text*)
+            line = re.sub(r'(?<!\*)\*(?!\*)([^*]+)(?<!\*)\*(?!\*)', r'<em>\1</em>', line)
+            line = re.sub(r'(?<!_)_(?!_)([^_]+)(?<!_)_(?!_)', r'<em>\1</em>', line)
+            
+            # Convert inline code (`code`)
+            line = re.sub(r'`([^`]+)`', r'<code>\1</code>', line)
+            
+            formatted_lines.append(line)
+        
+        # Close any remaining open list
+        if in_list:
+            formatted_lines.append(f'</{in_list}>')
+        
+        # Join lines and handle code blocks
+        result = '\n'.join(formatted_lines)
+        
+        # Convert code blocks (```code```)
+        result = re.sub(r'```(.*?)```', r'<pre><code>\1</code></pre>', result, flags=re.DOTALL)
+        
+        return result
+
     def cleanup_expired_sessions(self):
         """Clean up expired sessions if needed"""
         current_time = time()
@@ -75,13 +149,13 @@ class ChatService:
 
         llm = ChatGoogleGenerativeAI(
             model="gemini-1.5-flash",
-            temperature=0.15,
+            temperature=0.3,
             google_api_key=Config.GOOGLE_API_KEY
         )
 
         conversation_chain = ConversationalRetrievalChain.from_llm(
             llm=llm,
-            retriever=self.vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": 12}),
+            retriever=self.vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": 15}),
             memory=memory,
             combine_docs_chain_kwargs={"prompt": ChatPromptTemplate.from_template(template)}
         )
@@ -114,7 +188,8 @@ class ChatService:
                     chat_history = [str(msg) for msg in memory.chat_memory.messages]
                 
                 return {
-                    "answer": general_response,
+                    "answer": self.format_response(general_response),
+                    "raw_answer": general_response,
                     "chat_history": chat_history,
                     "status": "answered",
                     "session_id": session_id
@@ -168,8 +243,12 @@ class ChatService:
             if memory:
                 chat_history = [str(msg) for msg in memory.chat_memory.messages]
             
+            # Format the response
+            formatted_answer = self.format_response(answer)
+            
             return {
-                "answer": answer,
+                "answer": formatted_answer,
+                "raw_answer": answer,
                 "chat_history": chat_history,
                 "status": "answered",
                 "session_id": session_id
