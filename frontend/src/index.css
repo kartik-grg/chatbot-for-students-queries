@@ -1,4 +1,3 @@
-
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&family=Space+Grotesk:wght@300..700&family=Sriracha&display=swap');
 
 
@@ -72,6 +71,79 @@ body {
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Chat message formatting styles */
+.chat-response {
+  line-height: 1.6;
+}
+
+.chat-response h1, .chat-response h2, .chat-response h3 {
+  margin: 1em 0 0.5em 0;
+  color: #ffffff;
+  font-weight: bold;
+}
+
+.chat-response h1 {
+  font-size: 1.5em;
+  color: #60a5fa;
+}
+
+.chat-response h2 {
+  font-size: 1.3em;
+  color: #34d399;
+}
+
+.chat-response h3 {
+  font-size: 1.1em;
+  color: #fbbf24;
+}
+
+.chat-response ul, .chat-response ol {
+  margin: 0.5em 0;
+  padding-left: 1.5em;
+}
+
+.chat-response li {
+  margin-bottom: 0.25em;
+}
+
+.chat-response strong {
+  font-weight: bold;
+  color: #60a5fa;
+}
+
+.chat-response em {
+  font-style: italic;
+  color: #fbbf24;
+}
+
+.chat-response code {
+  background-color: #374151;
+  color: #f59e0b;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9em;
+}
+
+.chat-response pre {
+  background-color: #1f2937;
+  padding: 1em;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 0.5em 0;
+  border: 1px solid #374151;
+}
+
+.chat-response pre code {
+  background-color: transparent;
+  padding: 0;
+  color: #e5e7eb;
+}
+
+.chat-response br {
+  margin-bottom: 0.5em;
 }
 
 

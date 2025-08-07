@@ -46,7 +46,10 @@ function ChatHistory() {
               </div>
               <div>
                 <span className="text-green-400 font-medium">Answer: </span>
-                <span className="text-white">{chat.answer}</span>
+                <span 
+                  className="text-white chat-response"
+                  dangerouslySetInnerHTML={{ __html: chat.answer }}
+                />
               </div>
             </div>
           </SpotlightCard>
