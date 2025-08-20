@@ -153,9 +153,15 @@ class ChatService:
             google_api_key=Config.GOOGLE_API_KEY
         )
 
+        # Configure the retriever with search parameters
+        retriever = self.vectorstore.as_retriever(
+            search_type="similarity",
+            search_kwargs={"k": 15}
+        )
+
         conversation_chain = ConversationalRetrievalChain.from_llm(
             llm=llm,
-            retriever=self.vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": 15}),
+            retriever=retriever,
             memory=memory,
             combine_docs_chain_kwargs={"prompt": ChatPromptTemplate.from_template(template)}
         )

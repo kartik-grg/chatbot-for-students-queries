@@ -30,6 +30,9 @@ from middleware.middleware import (
 # Import utilities
 from utils.pdf_utils import create_embeddings
 
+from pinecone import Pinecone
+from langchain_pinecone import PineconeVectorStore
+
 def create_app(config_name='default'):
     """Application factory pattern"""
     app = Flask(__name__)
@@ -56,6 +59,16 @@ def create_app(config_name='default'):
     
     # Store email service in app config for global access
     app.config['EMAIL_SERVICE'] = email_service
+
+     # Initialize Pinecone
+    print("Initializing Pinecone...")
+    try:
+        # Using Pinecone v3 client API
+        pc = Pinecone(api_key=app.config.get('PINECONE_API_KEY'))
+        print("Pinecone initialized successfully!")
+    except Exception as e:
+        print(f"Error initializing Pinecone: {str(e)}")
+        raise
     
     # Create embeddings and vectorstore
     print("Initializing embeddings...")
