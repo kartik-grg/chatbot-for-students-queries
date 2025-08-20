@@ -60,7 +60,7 @@ An intelligent AI-powered chatbot system designed to help resolve student querie
 ### AI & ML Stack
 - **Google AI API** - Generative AI responses
 - **LangChain Community** - Extended AI capabilities
-- **FAISS CPU** - Vector similarity search
+- **Pinecone** - Managed vector database for production RAG deployments
 - **TextBlob** - Text processing and analysis
 - **PyPDF2** - PDF document processing
 

@@ -2,7 +2,8 @@ import os
 from PyPDF2 import PdfReader
 from langchain.text_splitter import CharacterTextSplitter
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
-from langchain_community.vectorstores import FAISS
+from langchain_pinecone import PineconeVectorStore
+from pinecone import Pinecone
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from config.config import Config
@@ -24,8 +25,8 @@ def get_pdf_text(pdf_docs):
             continue
     return text
 
-def get_text_chunks(text):
-    """Split text into chunks for processing"""
+def get_text_chunks(text, source=None):
+    """Split text into chunks for processing with metadata"""
     text_splitter = CharacterTextSplitter(
         separator="\n",
         chunk_size=1000,
@@ -33,16 +34,45 @@ def get_text_chunks(text):
         length_function=len
     )
     chunks = text_splitter.split_text(text)
+    
+    # Add metadata if source is provided
+    if source:
+        return chunks, [{"source": source} for _ in chunks]
     return chunks
 
 def get_vector_store(text_chunks):
-    """Create FAISS vector store from text chunks"""
+    """Create Pinecone vector store from text chunks"""
+    # Initialize Pinecone with v3 API
+    pc = Pinecone(api_key=Config.PINECONE_API_KEY)
+    
+    # Check if index exists, if not create it
+    index_name = Config.PINECONE_INDEX_NAME
+    dimension = 768  # Dimension for Google Embeddings model
+    
+    # Check if the index already exists
+    indexes = [idx.name for idx in pc.list_indexes()]
+    if index_name not in indexes:
+        print(f"Creating Pinecone index: {index_name}")
+        pc.create_index(
+            name=index_name,
+            dimension=dimension,
+            metric="cosine"
+        )
+    
+    # Create embeddings
     embeddings = GoogleGenerativeAIEmbeddings(
         model="models/embedding-001",
         google_api_key=Config.GOOGLE_API_KEY,
         task_type="retrieval_query" 
     )
-    vectorstore = FAISS.from_texts(texts=text_chunks, embedding=embeddings)
+    
+    # Create and return the vector store
+    vectorstore = PineconeVectorStore.from_texts(
+        texts=text_chunks,
+        embedding=embeddings,
+        index_name=index_name
+    )
+    
     return vectorstore
 
 def create_embeddings():
@@ -80,9 +110,51 @@ def create_embeddings():
         return get_vector_store(chunks)
     
     print(f"Found {len(pdf_files)} valid PDF files")
-    text = get_pdf_text(pdf_files)
-    chunks = get_text_chunks(text)
-    vectorstore = get_vector_store(chunks)
+    
+    all_chunks = []
+    all_metadatas = []
+    
+    for filepath in pdf_files:
+        filename = os.path.basename(filepath)
+        print(f"Processing {filename}...")
+        text = get_pdf_text([filepath])
+        chunks, metadatas = get_text_chunks(text, source=filename)
+        all_chunks.extend(chunks)
+        all_metadatas.extend(metadatas)
+    
+    # Initialize Pinecone with v3 API
+    pc = Pinecone(api_key=Config.PINECONE_API_KEY)
+    
+    # Check if index exists, if not create it
+    index_name = Config.PINECONE_INDEX_NAME
+    dimension = 768  # Dimension for Google Embeddings model
+    
+    # Check if the index already exists
+    indexes = [idx.name for idx in pc.list_indexes()]
+    if index_name not in indexes:
+        print(f"Creating Pinecone index: {index_name}")
+        pc.create_index(
+            name=index_name,
+            dimension=dimension,
+            metric="cosine"
+        )
+    
+    # Create embeddings
+    embeddings = GoogleGenerativeAIEmbeddings(
+        model="models/embedding-001",
+        google_api_key=Config.GOOGLE_API_KEY,
+        task_type="retrieval_query" 
+    )
+    
+    # Create and return the vector store with namespace
+    vectorstore = PineconeVectorStore.from_texts(
+        texts=all_chunks,
+        embedding=embeddings,
+        metadatas=all_metadatas,
+        index_name=index_name,
+        namespace="course_materials"  # Organize by namespace
+    )
+    
     print("Embeddings created successfully!")
     return vectorstore
 
@@ -295,12 +367,30 @@ def append_to_pdf(question, answer):
                 pass
         return False
 
+# Update the update_vectorstore function
 def update_vectorstore(vectorstore, question, answer):
-    """Update the vectorstore with new Q&A"""
+    """Update the Pinecone vector store with new Q&A"""
     # Create text chunk from new Q&A
     new_text = f"Question: {question}\nAnswer: {answer}"
     chunks = get_text_chunks(new_text)
     
-    # Add new chunks to existing vectorstore
-    vectorstore.add_texts(chunks)
-    print("Vectorstore updated with new Q&A")
+    # Add metadata to chunks
+    metadatas = [{"source": "admin_response", "question": question[:100]} for _ in chunks]
+    
+    # Add new chunks to Pinecone vectorstore
+    embeddings = GoogleGenerativeAIEmbeddings(
+        model="models/embedding-001",
+        google_api_key=Config.GOOGLE_API_KEY,
+        task_type="retrieval_query" 
+    )
+    
+    # Use the index name and namespace to add to the existing index
+    index_name = Config.PINECONE_INDEX_NAME
+    PineconeVectorStore.from_texts(
+        texts=chunks,
+        embedding=embeddings,
+        metadatas=metadatas,
+        index_name=index_name,
+        namespace="admin_responses"  # Separate namespace for admin responses
+    )
+    print("Pinecone vectorstore updated with new Q&A")

@@ -38,6 +38,10 @@ class EnvironmentMiddleware:
         if Config.LANGSMITH_API_KEY:
             os.environ["LANGSMITH_API_KEY"] = Config.LANGSMITH_API_KEY
 
+        # Set environment variables for Pinecone
+        if Config.PINECONE_API_KEY:
+            os.environ["PINECONE_API_KEY"] = Config.PINECONE_API_KEY
+
 class SessionCleanupMiddleware:
     """Middleware for cleaning up expired sessions"""
     
