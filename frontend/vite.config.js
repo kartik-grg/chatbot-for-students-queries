@@ -13,6 +13,8 @@ export default defineConfig({
       '/api': {
         target: 'http://127.0.0.1:5000', // Flask server
         changeOrigin: true,
+        // Preserve the trailing slashes
+        rewrite: (path) => path,
       },
     },
   },

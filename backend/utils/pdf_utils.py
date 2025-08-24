@@ -1,4 +1,6 @@
 import os
+import tempfile
+import requests
 from PyPDF2 import PdfReader
 from langchain.text_splitter import CharacterTextSplitter
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
@@ -6,7 +8,12 @@ from langchain_pinecone import PineconeVectorStore
 from pinecone import Pinecone
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
+import cloudinary
+import cloudinary.uploader
+import cloudinary.utils
+import cloudinary.api
 from config.config import Config
+from services.cloudinary_service import CloudinaryService
 
 def get_pdf_text(pdf_docs):
     """Extract text from PDF documents"""
@@ -37,91 +44,192 @@ def get_text_chunks(text, source=None):
     
     # Add metadata if source is provided
     if source:
-        return chunks, [{"source": source} for _ in chunks]
+        # Create minimal metadata to stay under Pinecone's 40KB limit
+        metadatas = []
+        for i, _ in enumerate(chunks):
+            metadatas.append({
+                "source": source,
+                "chunk_id": str(i)
+            })
+        return chunks, metadatas
     return chunks
 
-def get_vector_store(text_chunks):
+def sanitize_chunks(chunks):
+    """Make sure all chunks are valid for embedding"""
+    import re
+    
+    sanitized_chunks = []
+    for chunk in chunks:
+        # Ensure the chunk is a string
+        if not isinstance(chunk, str):
+            chunk = str(chunk)
+            
+        # Remove characters that might cause encoding issues
+        chunk = re.sub(r'[\uD800-\uDFFF]', '', chunk)  # Remove surrogate pairs
+        chunk = re.sub(r'[^\x00-\x7F]+', ' ', chunk)   # Replace non-ASCII with space
+        chunk = re.sub(r'\s+', ' ', chunk).strip()      # Clean up whitespace
+        
+        # Ensure the chunk isn't empty after cleaning
+        if chunk:
+            sanitized_chunks.append(chunk)
+    
+    return sanitized_chunks
+
+def get_vector_store(text_chunks, metadatas=None):
     """Create Pinecone vector store from text chunks"""
     # Initialize Pinecone with v3 API
     pc = Pinecone(api_key=Config.PINECONE_API_KEY)
     
-    # Check if index exists, if not create it
-    index_name = Config.PINECONE_INDEX_NAME
-    dimension = 768  # Dimension for Google Embeddings model
-    
-    # Check if the index already exists
-    indexes = [idx.name for idx in pc.list_indexes()]
-    if index_name not in indexes:
-        print(f"Creating Pinecone index: {index_name}")
-        pc.create_index(
-            name=index_name,
-            dimension=dimension,
-            metric="cosine"
+    # Sanitize chunks to prevent encoding issues
+    try:
+        clean_chunks = sanitize_chunks(text_chunks)
+        print(f"Original chunks: {len(text_chunks)}, Clean chunks: {len(clean_chunks)}")
+        
+        # Check if we have any valid chunks after cleaning
+        if not clean_chunks:
+            print("WARNING: No valid chunks after sanitization, using default text")
+            clean_chunks = ["This is a student query chatbot for academic assistance."]
+            metadatas = [{"source": "default"}]
+        else:
+            # Always create fresh minimal metadata to avoid any size issues
+            metadatas = []
+            for i in range(len(clean_chunks)):
+                metadatas.append({
+                    "source": "cloudinary_pdf", 
+                    "chunk_id": str(i)
+                })
+        
+        # Check if index exists, if not create it
+        index_name = Config.PINECONE_INDEX_NAME
+        dimension = 768  # Dimension for Google Embeddings model
+        
+        # Check if the index already exists
+        indexes = [idx.name for idx in pc.list_indexes()]
+        if index_name not in indexes:
+            print(f"Creating Pinecone index: {index_name}")
+            pc.create_index(
+                name=index_name,
+                dimension=dimension,
+                metric="cosine"
+            )
+        
+        # Create embeddings
+        embeddings = GoogleGenerativeAIEmbeddings(
+            model="models/embedding-001",
+            google_api_key=Config.GOOGLE_API_KEY,
+            task_type="retrieval_query" 
         )
-    
-    # Create embeddings
-    embeddings = GoogleGenerativeAIEmbeddings(
-        model="models/embedding-001",
-        google_api_key=Config.GOOGLE_API_KEY,
-        task_type="retrieval_query" 
-    )
-    
-    # Create and return the vector store
-    vectorstore = PineconeVectorStore.from_texts(
-        texts=text_chunks,
-        embedding=embeddings,
-        index_name=index_name
-    )
-    
-    return vectorstore
+        
+        # Create and return the vector store
+        print(f"Creating vector store from {len(clean_chunks)} chunks")
+        vectorstore = PineconeVectorStore.from_texts(
+            texts=clean_chunks,
+            embedding=embeddings,
+            metadatas=metadatas if metadatas and len(metadatas) == len(clean_chunks) else None,
+            index_name=index_name,
+            namespace="course_materials"
+        )
+        
+        return vectorstore
+        
+    except Exception as e:
+        print(f"Error creating vector store: {str(e)}")
+        # Create a minimal vector store with default content
+        default_text = ["This is a student query chatbot for academic assistance."]
+        embeddings = GoogleGenerativeAIEmbeddings(
+            model="models/embedding-001", 
+            google_api_key=Config.GOOGLE_API_KEY,
+            task_type="retrieval_query"
+        )
+        
+        vectorstore = PineconeVectorStore.from_texts(
+            texts=default_text,
+            embedding=embeddings,
+            metadatas=[{"source": "default"}],
+            index_name=Config.PINECONE_INDEX_NAME,
+            namespace="course_materials"
+        )
+        
+        return vectorstore
 
 def create_embeddings():
-    """Create embeddings from PDF files in resources directory"""
-    resources_dir = os.path.join(os.getcwd(), "resources")
-    pdf_files = []
+    """Create embeddings from PDFs stored in Cloudinary"""
+    # Get all PDFs from Cloudinary
+    cloudinary_service = CloudinaryService()
+    pdf_resources = cloudinary_service.list_pdfs()
     
-    # Check if resources directory exists
-    if not os.path.exists(resources_dir):
-        print("Resources directory not found, creating default vectorstore")
+    if not pdf_resources:
+        print("No PDF resources found in Cloudinary")
+        # Create a default embedding if no PDFs are available
+        default_text = "This is a student query chatbot for academic assistance."
+        chunks = get_text_chunks(default_text)
+        
+        return get_vector_store(chunks)
+    
+    # Get URLs directly from resources
+    pdf_urls = []
+    for resource in pdf_resources:
+        # Use secure_url when available, otherwise use url
+        url = resource.get('secure_url', resource.get('url'))
+        if url:
+            pdf_urls.append(url)
+            print(f"Using URL for {resource.get('public_id')}: {url}")
+    
+    print(f"Processing {len(pdf_urls)} PDFs from Cloudinary")
+    
+    # Extract text from all PDFs
+    from utils.cloudinary_utils import get_pdf_text_from_urls
+    all_text = get_pdf_text_from_urls(pdf_urls)
+    
+    if not all_text.strip():
+        print("No text extracted from PDFs, creating default vectorstore")
         default_text = "This is a student query chatbot for academic assistance."
         chunks = get_text_chunks(default_text)
         return get_vector_store(chunks)
     
-    # Collect valid PDF files
-    for filename in os.listdir(resources_dir):
-        if filename.lower().endswith(".pdf"):
-            filepath = os.path.join(resources_dir, filename)
-            try:
-                # Try to open the PDF to check if it's valid
-                with open(filepath, 'rb') as f:
-                    pdf = PdfReader(f)
-                    if len(pdf.pages) > 0:
-                        pdf_files.append(filepath)
-                    else:
-                        print(f"Skipping empty PDF: {filename}")
-            except Exception as e:
-                print(f"Error checking PDF {filename}: {str(e)}")
-                continue
+    # Create text chunks without including text in metadata
+    # Debug the text content first
+    print(f"Total text length: {len(all_text)} characters")
+    print(f"First 100 characters: {all_text[:100]}")
+    print(f"Number of newlines: {all_text.count('\n')}")
     
-    if not pdf_files:
-        print("No valid PDF files found, creating default vectorstore")
-        default_text = "This is a student query chatbot for academic assistance."
-        chunks = get_text_chunks(default_text)
-        return get_vector_store(chunks)
+    # Force chunking by length if needed
+    chunks = []
+    if len(all_text) > 5000:  # If text is very long
+        # Manual chunking by fixed size
+        chunk_size = 800  # Smaller chunks to be safe
+        for i in range(0, len(all_text), chunk_size):
+            chunk = all_text[i:i+chunk_size]
+            if chunk.strip():  # Only add non-empty chunks
+                chunks.append(chunk)
+        print(f"Manually created {len(chunks)} chunks")
+    else:
+        # Try standard chunking for shorter texts
+        text_splitter = CharacterTextSplitter(
+            separator="\n",
+            chunk_size=800,  # Smaller chunk size
+            chunk_overlap=100,  # Less overlap
+            length_function=len
+        )
+        chunks = text_splitter.split_text(all_text)
+        print(f"Text splitter created {len(chunks)} chunks")
     
-    print(f"Found {len(pdf_files)} valid PDF files")
+    # Ensure we have chunks
+    if len(chunks) == 0:
+        print("WARNING: No chunks created, falling back to default")
+        chunks = [all_text[i:i+800] for i in range(0, len(all_text), 800)]
+        print(f"Force created {len(chunks)} chunks")
     
-    all_chunks = []
-    all_metadatas = []
+    # Create minimal metadata with only essential information
+    metadatas = []
+    for i in range(len(chunks)):
+        metadatas.append({
+            "source": "cloudinary_pdf", 
+            "chunk_id": str(i)
+        })
     
-    for filepath in pdf_files:
-        filename = os.path.basename(filepath)
-        print(f"Processing {filename}...")
-        text = get_pdf_text([filepath])
-        chunks, metadatas = get_text_chunks(text, source=filename)
-        all_chunks.extend(chunks)
-        all_metadatas.extend(metadatas)
-    
+    print(f"Created {len(chunks)} chunks with minimal metadata")
+
     # Initialize Pinecone with v3 API
     pc = Pinecone(api_key=Config.PINECONE_API_KEY)
     
@@ -147,23 +255,140 @@ def create_embeddings():
     )
     
     # Create and return the vector store with namespace
-    vectorstore = PineconeVectorStore.from_texts(
-        texts=all_chunks,
-        embedding=embeddings,
-        metadatas=all_metadatas,
-        index_name=index_name,
-        namespace="course_materials"  # Organize by namespace
-    )
+    # Add in smaller batches to avoid overwhelming Pinecone
+    batch_size = 50  # Process in batches of 50 vectors
+    total_chunks = len(chunks)
+    
+    print(f"Creating vectors in batches of {batch_size}, total chunks: {total_chunks}")
+    
+    try:
+        # Try a completely different approach using direct Pinecone API
+        print("Using direct Pinecone API approach")
+        
+        # Initialize the index
+        index = pc.Index(index_name)
+        
+        # Create embeddings for each chunk directly
+        vectors_to_upsert = []
+        
+        # Process in smaller batches
+        first_batch_size = min(batch_size, total_chunks)
+        
+        # Only process a few chunks for testing
+        for i, chunk in enumerate(chunks[:first_batch_size]):
+            # Get embedding vector for this chunk
+            try:
+                vector = embeddings.embed_query(chunk)
+                
+                # Create vector record with minimal metadata
+                vector_record = {
+                    "id": f"chunk_{i}",
+                    "values": vector,
+                    "metadata": {"id": str(i)}  # Absolutely minimal metadata
+                }
+                
+                vectors_to_upsert.append(vector_record)
+                print(f"Created embedding vector for chunk {i}")
+            except Exception as e:
+                print(f"Error embedding chunk {i}: {str(e)}")
+        
+        # Upsert vectors directly to Pinecone
+        if vectors_to_upsert:
+            print(f"Upserting {len(vectors_to_upsert)} vectors to Pinecone")
+            index.upsert(vectors=vectors_to_upsert, namespace="course_materials")
+            print("Successfully upserted vectors")
+        
+        # Create and return LangChain wrapper around the index
+        vectorstore = PineconeVectorStore(
+            index_name=index_name,
+            embedding=embeddings,
+            namespace="course_materials"
+        )
+        
+        # Add remaining batches if any
+        if total_chunks > first_batch_size:
+            for i in range(first_batch_size, total_chunks, batch_size):
+                end_idx = min(i + batch_size, total_chunks)
+                batch_chunks = chunks[i:end_idx]
+                
+                # Create absolutely minimal metadata
+                batch_metadatas = []
+                for j in range(i, end_idx):
+                    batch_metadatas.append({"id": str(j)})
+                
+                print(f"Adding batch {i//batch_size + 1} with {len(batch_chunks)} chunks")
+                
+                # Add these chunks to the existing vectorstore
+                # Debug metadata size
+                import json
+                metadata_size = len(json.dumps(batch_metadatas).encode('utf-8'))
+                print(f"Batch metadata size: {metadata_size} bytes")
+                
+                vectorstore.add_texts(
+                    texts=batch_chunks,
+                    metadatas=batch_metadatas
+                )
+        
+        print("Successfully created vector store with all chunks")
+        return vectorstore
+        
+    except Exception as e:
+        print(f"Error creating vector store in batches: {str(e)}")
+        print("Falling back to default vector store")
+        
+        # Create a minimal default vector store
+        default_text = ["This is a student query chatbot for academic assistance."]
+        default_metadata = [{"source": "default"}]
+        
+        vectorstore = PineconeVectorStore.from_texts(
+            texts=default_text,
+            embedding=embeddings,
+            metadatas=default_metadata,
+            index_name=index_name,
+            namespace="course_materials"
+        )
+        return vectorstore
     
     print("Embeddings created successfully!")
     return vectorstore
 
 def append_to_pdf(question, answer):
-    """Append question and answer to extra.pdf efficiently"""
-    pdf_path = os.path.join(os.getcwd(), "resources", "extra.pdf")
+    """Append question and answer to extra.pdf in Cloudinary"""
+    import tempfile
+    import shutil
+    import uuid
+    import cloudinary
+    import cloudinary.uploader
+    from services.cloudinary_service import CloudinaryService
+    from config.config import Config
     
-    # Create resources directory if it doesn't exist
-    os.makedirs(os.path.dirname(pdf_path), exist_ok=True)
+    # Use Cloudinary service
+    cloudinary_service = CloudinaryService()
+    
+    # Create a temporary directory for working with files
+    temp_dir = tempfile.mkdtemp()
+    pdf_path = os.path.join(temp_dir, "extra.pdf")
+    
+    # Get existing extra PDF from Cloudinary if it exists
+    extra_pdf_public_id = None
+    try:
+        # List all PDFs and find the one with 'extra' in the name
+        pdfs = cloudinary_service.list_pdfs()
+        for pdf in pdfs:
+            if 'extra' in pdf.get('public_id', '').lower():
+                extra_pdf_public_id = pdf.get('public_id')
+                extra_pdf_url = pdf.get('url')
+                break
+        
+        # Download the PDF if it exists
+        if extra_pdf_public_id and extra_pdf_url:
+            print(f"Found existing extra PDF in Cloudinary: {extra_pdf_public_id}")
+            from utils.cloudinary_utils import download_pdf
+            pdf_path = download_pdf(extra_pdf_url, temp_dir)
+        else:
+            print("No existing extra PDF found in Cloudinary. Creating a new one.")
+    except Exception as e:
+        print(f"Error fetching extra PDF from Cloudinary: {str(e)}")
     
     # Maximum Q&As per page and text wrapping settings
     MAX_QA_PER_PAGE = 5
@@ -353,44 +578,120 @@ def append_to_pdf(question, answer):
             os.remove(pdf_path)
         os.rename(temp_path, pdf_path)
         
-        print(f"Successfully appended Q&A to PDF. Total Q&As: {len(existing_qas)}")
-        return True
+        # Upload updated PDF to Cloudinary
+        try:
+            # If we already had an extra PDF, use the same public_id to replace it
+            if extra_pdf_public_id:
+                public_id = extra_pdf_public_id
+            else:
+                # Create a new public_id in the PDF folder
+                public_id = f"{Config.PDF_FOLDER}/extra_{str(uuid.uuid4())[:8]}"
+            
+            print(f"Uploading updated PDF to Cloudinary with ID: {public_id}")
+            result = cloudinary.uploader.upload(
+                pdf_path,
+                resource_type="raw",
+                public_id=public_id,
+                overwrite=True,
+                access_mode="public"
+            )
+            
+            print(f"Successfully uploaded updated PDF to Cloudinary: {result.get('public_id')}")
+            
+            # Skip automatic embedding creation as requested
+            print("PDF uploaded to Cloudinary successfully. Embeddings will not be created automatically.")
+            print("Use the 'Rebuild Embeddings' button in the admin dashboard to update embeddings.")
+            
+            # Clean up
+            if os.path.exists(pdf_path):
+                os.remove(pdf_path)
+            if os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir)
+            
+            print(f"this Successfully appended Q&A to PDF. Total Q&As: {len(existing_qas)}")
+            return True
+            
+        except Exception as upload_error:
+            print(f"Error uploading updated PDF to Cloudinary: {str(upload_error)}")
+            return False
         
     except Exception as e:
         print(f"Error in append_to_pdf: {str(e)}")
-        # Clean up temp file if it exists
-        temp_path = pdf_path + ".tmp"
-        if os.path.exists(temp_path):
+        # Clean up temp files
+        if 'temp_path' in locals():
+            if os.path.exists(temp_path):
+                try:
+                    os.remove(temp_path)
+                except Exception:
+                    print(f"Failed to remove temp file: {temp_path}")
+        
+        # Clean up temp directory
+        if 'temp_dir' in locals():
             try:
-                os.remove(temp_path)
-            except:
-                pass
+                shutil.rmtree(temp_dir)
+            except Exception:
+                print(f"Failed to remove temp directory: {temp_dir}")
+        
         return False
 
 # Update the update_vectorstore function
-def update_vectorstore(vectorstore, question, answer):
-    """Update the Pinecone vector store with new Q&A"""
-    # Create text chunk from new Q&A
-    new_text = f"Question: {question}\nAnswer: {answer}"
-    chunks = get_text_chunks(new_text)
+def update_vectorstore(pdf_path=None, question=None, answer=None):
+    """Update the Pinecone vector store with new content
     
-    # Add metadata to chunks
-    metadatas = [{"source": "admin_response", "question": question[:100]} for _ in chunks]
+    This function is a wrapper to create or update embeddings in the vectorstore
+    """
+    try:
+        # If pdf_path is provided, use it to create embeddings
+        if pdf_path:
+            print(f"Updating vectorstore with PDF: {pdf_path}")
+            create_embeddings()
+            return True
+            
+        # If question and answer are provided, create embeddings from the text
+        elif question and answer:
+            print("Updating vectorstore with new Q&A...")
+            # Format the text as Q&A
+            text = f"Question: {question}\nAnswer: {answer}"
+            metadata = {"source": "admin_response", "question": question[:100]}
+            
+            # Use our function to create embeddings directly from text
+            create_embeddings_from_text(text, metadata)
+            return True
+        else:
+            print("Error: Either pdf_path or question and answer must be provided")
+            return False
+    except Exception as e:
+        print(f"Error updating vectorstore: {str(e)}")
+        return False
     
-    # Add new chunks to Pinecone vectorstore
-    embeddings = GoogleGenerativeAIEmbeddings(
-        model="models/embedding-001",
-        google_api_key=Config.GOOGLE_API_KEY,
-        task_type="retrieval_query" 
-    )
-    
-    # Use the index name and namespace to add to the existing index
-    index_name = Config.PINECONE_INDEX_NAME
-    PineconeVectorStore.from_texts(
-        texts=chunks,
-        embedding=embeddings,
-        metadatas=metadatas,
-        index_name=index_name,
-        namespace="admin_responses"  # Separate namespace for admin responses
-    )
-    print("Pinecone vectorstore updated with new Q&A")
+def embeddings_exist():
+    """Check if embeddings already exist in Pinecone"""
+    try:
+        # Initialize Pinecone
+        pc = Pinecone(api_key=Config.PINECONE_API_KEY)
+        
+        # Check if index exists
+        index_name = Config.PINECONE_INDEX_NAME
+        indexes = [idx.name for idx in pc.list_indexes()]
+        
+        if index_name not in indexes:
+            print(f"Index {index_name} does not exist")
+            return False
+        
+        # Get the index
+        index = pc.Index(index_name)
+        
+        # Check if the index has vectors in the namespace
+        stats = index.describe_index_stats()
+        namespaces = stats.get("namespaces", {})
+        course_materials = namespaces.get("course_materials", {})
+        vector_count = course_materials.get("vector_count", 0)
+        
+        print(f"Found {vector_count} vectors in the course_materials namespace")
+        
+        # Return True if there are vectors in the namespace
+        return vector_count > 0
+        
+    except Exception as e:
+        print(f"Error checking if embeddings exist: {str(e)}")
+        return False

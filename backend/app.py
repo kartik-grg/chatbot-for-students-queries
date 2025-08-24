@@ -4,9 +4,15 @@ A professional Flask application for student query resolution using RAG and AI.
 """
 
 import os
-from flask import Flask
+import sys
+import time
+from datetime import datetime
+
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_mail import Mail
+from werkzeug.middleware.proxy_fix import ProxyFix
+import cloudinary
 
 # Import configurations
 from config.config import config
@@ -16,9 +22,11 @@ from config.database import db_instance
 from services.email_service import EmailService
 
 # Import routes
+from routes.admin_routes import create_admin_routes
 from routes.auth_routes import create_auth_routes
 from routes.chat_routes import create_chat_routes
-from routes.admin_routes import create_admin_routes, create_legacy_admin_routes
+from routes.admin_routes import create_legacy_admin_routes
+from routes.pdf_routes import create_pdf_routes
 
 # Import middleware
 from middleware.middleware import (
@@ -28,7 +36,7 @@ from middleware.middleware import (
 )
 
 # Import utilities
-from utils.pdf_utils import create_embeddings
+from utils.pdf_utils import create_embeddings, embeddings_exist
 
 from pinecone import Pinecone
 from langchain_pinecone import PineconeVectorStore
@@ -43,6 +51,13 @@ def create_app(config_name='default'):
     # Initialize extensions
     cors = CORS(app)
     mail = Mail(app)
+    
+    # Initialize Cloudinary
+    cloudinary.config(
+        cloud_name=app.config["CLOUDINARY_CLOUD_NAME"],
+        api_key=app.config["CLOUDINARY_API_KEY"],
+        api_secret=app.config["CLOUDINARY_API_SECRET"]
+    )
     
     # Initialize middleware
     EnvironmentMiddleware(app)
@@ -70,20 +85,65 @@ def create_app(config_name='default'):
         print(f"Error initializing Pinecone: {str(e)}")
         raise
     
+    # Initialize Cloudinary
+    print("Initializing Cloudinary...")
+    try:
+        from services.cloudinary_service import CloudinaryService
+        cloudinary_service = CloudinaryService()
+        print("Cloudinary initialized successfully!")
+    except Exception as e:
+        print(f"Error initializing Cloudinary: {str(e)}")
+        raise
+    
     # Create embeddings and vectorstore
     print("Initializing embeddings...")
     try:
-        vectorstore_global = create_embeddings()
+        # Check if embeddings already exist in Pinecone
+        if embeddings_exist():
+            print("Embeddings already exist in Pinecone, skipping creation")
+            # Initialize vectorstore with existing embeddings
+            from langchain_google_genai import GoogleGenerativeAIEmbeddings
+            from langchain_pinecone import PineconeVectorStore
+            
+            embeddings = GoogleGenerativeAIEmbeddings(
+                model="models/embedding-001",
+                google_api_key=app.config.get('GOOGLE_API_KEY'),
+                task_type="retrieval_query"
+            )
+            
+            vectorstore_global = PineconeVectorStore(
+                index_name=app.config.get('PINECONE_INDEX_NAME'),
+                embedding=embeddings,
+                namespace="course_materials"
+            )
+        else:
+            print("No embeddings found in Pinecone, creating new embeddings")
+            vectorstore_global = create_embeddings()
+        
         print("Embeddings initialized successfully!")
     except Exception as e:
         print(f"Error initializing embeddings: {str(e)}")
-        raise
+        # Create a fallback vectorstore with minimal default content
+        print("Creating fallback vectorstore with default content")
+        # Use a simple default text for embedding
+        default_text = ["This is a student query chatbot for academic assistance."]
+        try:
+            # Try to create a minimal vectorstore
+            from utils.pdf_utils import get_vector_store
+            vectorstore_global = get_vector_store(default_text)
+            print("Fallback vectorstore created successfully")
+        except Exception as fallback_error:
+            print(f"Error creating fallback vectorstore: {str(fallback_error)}")
+            # If all else fails, set to None and handle in routes
+            vectorstore_global = None
+            print("WARNING: No vectorstore available, chat functionality will be limited")
     
     # Register blueprints (routes)
     app.register_blueprint(create_auth_routes(app))
     app.register_blueprint(create_chat_routes(vectorstore_global))
     app.register_blueprint(create_admin_routes(email_service))
     app.register_blueprint(create_legacy_admin_routes(email_service))  # For backward compatibility
+    app.register_blueprint(create_pdf_routes())
     
     # Health check endpoint
     @app.route('/health', methods=['GET'])

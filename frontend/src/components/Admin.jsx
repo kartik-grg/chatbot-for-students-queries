@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { RiDashboardLine, RiLogoutBoxLine, RiMessage2Line, RiDeleteBin6Line, RiBarChart2Line } from 'react-icons/ri'
+import { RiDashboardLine, RiLogoutBoxLine, RiMessage2Line, RiDeleteBin6Line, RiBarChart2Line, RiFileTextLine, RiRefreshLine } from 'react-icons/ri'
 import axios from "axios";
 import QueryAnalytics from './QueryAnalytics';
+import PDFManagement from './PDFManagement';
+import { rebuildEmbeddings } from '../lib/api';
 
 function Admin() {
   const navigate = useNavigate();
@@ -10,6 +12,7 @@ function Admin() {
   const [response, setResponse] = useState({});
   const [activeTab, setActiveTab] = useState('dashboard');
   const [adminChatHistory, setAdminChatHistory] = useState([]);
+  const [rebuilding, setRebuilding] = useState(false);
   const [stats, setStats] = useState({
     total_users: 0,
     total_chats: 0,
@@ -86,6 +89,19 @@ function Admin() {
     localStorage.removeItem('adminToken');
     navigate('/admin');
   };
+  
+  const handleRebuildEmbeddings = async () => {
+    setRebuilding(true);
+    try {
+      await rebuildEmbeddings();
+      alert('Embeddings rebuilt successfully');
+    } catch (error) {
+      console.error('Error rebuilding embeddings:', error);
+      alert('Failed to rebuild embeddings');
+    } finally {
+      setRebuilding(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-900">
@@ -124,6 +140,14 @@ function Admin() {
               <RiBarChart2Line className="mr-3" />
               Analytics
             </a>
+            <a 
+              href="#" 
+              className={`flex items-center px-6 py-3 text-gray-300 hover:bg-gray-700 ${activeTab === 'pdfs' ? 'bg-gray-700' : ''}`}
+              onClick={() => setActiveTab('pdfs')}
+            >
+              <RiFileTextLine className="mr-3" />
+              PDF Management
+            </a>
           </nav>
 
           <div className="p-4">
@@ -140,10 +164,25 @@ function Admin() {
 
       {/* Main content */}
       <div className="ml-64 p-8">
-        {/* Dashboard Tab */}
+            {/* Dashboard Tab */}
         {activeTab === 'dashboard' && (
           <div className="bg-gray-800 rounded-lg p-6">
-            <h2 className="text-2xl text-white mb-4">Welcome, Admin</h2>
+            {/* Header with title and rebuild button */}
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl text-white">Welcome, Admin</h2>
+              
+              {/* Rebuild Embeddings Button - moved to right side */}
+              <button
+                onClick={handleRebuildEmbeddings}
+                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded flex items-center"
+                disabled={rebuilding}
+              >
+                <RiRefreshLine className="mr-2" />
+                {rebuilding ? "Rebuilding..." : "Rebuild Embeddings"}
+              </button>
+            </div>
+            
+            {/* Info cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="bg-gray-700 p-4 rounded-lg">
                 <h3 className="text-white text-lg mb-2">Total Chats</h3>
@@ -158,6 +197,11 @@ function Admin() {
                 <p className="text-purple-400 text-2xl font-bold">{stats.unanswered_queries}</p>
               </div>
             </div>
+            
+            {/* Embeddings info text */}
+            <p className="text-gray-400 text-sm mt-4">
+              Remember to rebuild embeddings after answering questions to update the AI knowledge base.
+            </p>
 
             {/* Unanswered Queries Section */}
             <div className="mt-8 text-white">
@@ -224,6 +268,12 @@ function Admin() {
 
         {activeTab === 'analytics' && (
           <QueryAnalytics />
+        )}
+        
+        {activeTab === 'pdfs' && (
+          <div className="bg-gray-800 rounded-lg p-6">
+            <PDFManagement />
+          </div>
         )}
       </div>
     </div>

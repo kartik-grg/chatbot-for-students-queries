@@ -151,3 +151,66 @@ class ChatHistory:
     def get_all_questions_with_timestamps(self):
         """Get all questions with timestamps for analytics"""
         return list(self.collection.find({}, {"question": 1, "timestamp": 1}))
+
+
+class PDF:
+    """PDF document model"""
+    
+    def __init__(self, public_id, original_filename, url, created_at=None, resource_type=None, bytes=None, display_name=None):
+        self.public_id = public_id
+        
+        # Extract a better display name from the public_id if possible
+        public_id_base = public_id.split('/')[-1]  # Get the last part after any folders
+        if '_' in public_id_base:
+            # The public_id should now contain original name followed by a UUID
+            # Format: original_name_uuid
+            display_name_from_id = public_id_base.split('_')[0]
+            if len(display_name_from_id) > 3:  # Ensure it's a reasonable name
+                self.original_filename = f"{display_name_from_id}.pdf"
+            else:
+                self.original_filename = original_filename or display_name or public_id_base
+        else:
+            self.original_filename = original_filename or display_name or public_id_base
+            
+        self.url = url
+        self.created_at = created_at
+        self.resource_type = resource_type
+        self.bytes = bytes
+    
+    @classmethod
+    def from_cloudinary_resource(cls, resource):
+        """Create a PDF object from Cloudinary resource"""
+        # Use display_name or extract from public_id
+        display_name = resource.get("display_name")
+        original_filename = resource.get("original_filename")
+        
+        return cls(
+            public_id=resource['public_id'],
+            original_filename=original_filename,
+            display_name=display_name,
+            url=resource['secure_url'] if 'secure_url' in resource else resource['url'],
+            created_at=resource.get('created_at'),
+            resource_type=resource.get('resource_type'),
+            bytes=resource.get('bytes')
+        )
+    
+    def to_dict(self):
+        """Convert the PDF object to a dictionary"""
+        
+        # Extract folder and name parts for display
+        parts = self.public_id.split('/')
+        file_id = parts[-1]
+        folder = '/'.join(parts[:-1]) if len(parts) > 1 else ''
+        
+        # Extract a nicer display name from the file_id if possible
+        display_name = self.original_filename
+        
+        return {
+            "public_id": self.public_id,
+            "filename": display_name,
+            "url": self.url,
+            "created_at": self.created_at,
+            "size": self.bytes,
+            "folder": folder,
+            "file_id": file_id
+        }
