@@ -11,7 +11,7 @@ import { SkeletonDemo } from "./ui/SkeletonDemo";
 import { FaHistory, FaCalendarAlt, FaChevronDown, FaChevronUp } from "react-icons/fa";
 import { BiExpandAlt, BiCollapseAlt } from "react-icons/bi"; // Added resize icons
 import { FiLogOut, FiLogIn } from "react-icons/fi"; // More distinct login/logout icons
-import axios from "axios";
+import { getChatHistory, submitQuery } from "../lib/api";
 import { format } from "date-fns";
 
 function ChatBox({ onClose }) {
@@ -170,10 +170,8 @@ function ChatBox({ onClose }) {
       setHistoryLoading(true);
       try {
         const token = localStorage.getItem("userToken");
-        const response = await axios.get("/api/chat-history", {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setUserChatHistory(response.data.history || []);
+        const response = await getChatHistory(token);
+        setUserChatHistory(response.history || []);
       } catch (error) {
         console.error("Error fetching chat history:", error);
       } finally {
@@ -202,19 +200,15 @@ function ChatBox({ onClose }) {
 
     try {
       const token = localStorage.getItem("userToken");
-      const response = await axios.post("/api/query", 
+      const response = await submitQuery(
         {
           question: currentMessage,
         },
-        {
-          headers: { 
-            Authorization: token ? `Bearer ${token}` : undefined
-          }
-        }
+        token
       );
 
       // Get the response text
-      const responseText = response.data.answer || "No answer found";
+      const responseText = response.answer || "No answer found";
       
       // Update the last message with the response
       setChatHistory((prev) => {

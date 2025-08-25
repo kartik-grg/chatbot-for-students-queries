@@ -14,9 +14,22 @@ class CORSMiddleware:
     
     def after_request(self, response):
         """Add CORS headers to response"""
-        response.headers.add('Access-Control-Allow-Origin', '*')
-        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+        # Get origins from environment variable
+        cors_origins = os.environ.get('CORS_ORIGINS', '*')
+        
+        # Handle preflight OPTIONS request
+        if request.method == 'OPTIONS':
+            response.headers.add('Access-Control-Allow-Origin', cors_origins)
+            response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+            response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+            response.headers.add('Access-Control-Allow-Credentials', 'true')
+            response.headers.add('Access-Control-Max-Age', '3600')
+        else:
+            response.headers.add('Access-Control-Allow-Origin', cors_origins)
+            response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+            response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+            response.headers.add('Access-Control-Allow-Credentials', 'true')
+            
         return response
 
 class EnvironmentMiddleware:

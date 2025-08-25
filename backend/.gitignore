@@ -76,6 +76,10 @@ htmlcov/
 backend/resources/*.pdf
 !backend/resources/sample.pdf
 
+# Render specific
+__render_build__/
+.render/
+
 # FAISS index files
 faiss_index/
 faiss_index_*

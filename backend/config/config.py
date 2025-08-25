@@ -50,7 +50,10 @@ class Config:
     
     # Admin credentials
     ADMIN_EMAIL = os.getenv("ADMIN_EMAIL")
-    ADMIN_PASSWORD = os.getenv("ADMIN_PASS")
+    ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
+    
+    # CORS Settings
+    CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*")
 
 class DevelopmentConfig(Config):
     """Development configuration"""
