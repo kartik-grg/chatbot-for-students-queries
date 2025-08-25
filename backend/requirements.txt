@@ -1,3 +1,7 @@
+# pip configuration (for Render deployment)
+# Using pre-built wheels when possible
+--prefer-binary
+
 # Core Flask dependencies
 Flask==2.3.3
 flask-cors==4.0.0
@@ -36,7 +40,8 @@ Werkzeug==2.3.7  # Required by Flask 2.3.3
 
 # Production server
 gunicorn==21.2.0
-gevent==23.9.1  # Added for gunicorn worker
+# Using an older version of gevent that has pre-built wheels available for Python 3.10
+gevent==22.10.2  # Using older version that has wheels for better compatibility
 
 # Development dependencies (optional)
 pytest==7.4.2

@@ -10,7 +10,12 @@ default_workers = (cpu_count * 2) + 1
 # Worker configuration
 workers = int(os.environ.get('WEB_CONCURRENCY', default_workers))
 threads = int(os.environ.get('THREADS', 2))
-worker_class = 'gevent'  # Using gevent for better async performance
+# Try to use gevent if available, otherwise fall back to sync or gthread worker
+try:
+    import gevent
+    worker_class = 'gevent'  # Using gevent for better async performance
+except ImportError:
+    worker_class = os.environ.get('GUNICORN_WORKER_CLASS', 'sync')  # Fallback to sync worker
 worker_connections = 1000
 
 # Timeout configuration
