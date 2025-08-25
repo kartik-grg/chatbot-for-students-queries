@@ -284,11 +284,14 @@ class ChatService:
             from utils.pdf_utils import append_to_pdf
             success = append_to_pdf(query_doc["question"], response)
             
-            if success:
-                try:
-                    update_vectorstore(self.vectorstore, query_doc["question"], response)
-                except Exception as e:
-                    print(f"Error updating vectorstore: {str(e)}")
+            # Intentionally skip vectorstore update after admin answers
+            # The vectorstore should be updated only manually through the admin dashboard
+            # if success:
+            #     try:
+            #         # Call update_vectorstore with correct parameters - question and answer only
+            #         update_vectorstore(question=query_doc["question"], answer=response)
+            #     except Exception as e:
+            #         print(f"Error updating vectorstore: {str(e)}")
             
             # Send email notification if user exists
             user_id = query_doc.get("user_id")

@@ -26,6 +26,10 @@ PyJWT==2.8.0
 # Environment and utilities
 python-dotenv==1.0.0
 python-multipart==0.0.6
+cloudinary==1.36.0
+# flask-cloudinary==1.0.0  # This package might not exist, using only cloudinary is sufficient
+Flask-Uploads==0.2.1
+Werkzeug==2.3.7 
 
 # Production server
 gunicorn==21.2.0

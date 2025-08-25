@@ -94,17 +94,17 @@ class AdminService:
             # Update database
             result = self.query_model.update_query(query_id, response)
             
-            # Append to PDF and update vectorstore
-            from utils.pdf_utils import append_to_pdf, update_vectorstore
+            # Append to Cloudinary PDF (without creating embeddings automatically)
+            from utils.pdf_utils import append_to_pdf
             success = append_to_pdf(query_doc["question"], response)
             
             if success:
-                try:
-                    # Note: You'll need to pass vectorstore here or store it globally
-                    # For now, just log the update
-                    print(f"Added Q&A to PDF: {query_doc['question']} -> {response}")
-                except Exception as e:
-                    print(f"Error updating vectorstore: {str(e)}")
+                print(f"Added Q&A to Cloudinary PDF: {query_doc['question']} -> {response}")
+                print(f"Note: Embeddings are not created automatically. Use 'Rebuild Embeddings' in admin dashboard.")
+            else:
+                print(f"Failed to add Q&A to Cloudinary PDF")
+                # Return successful anyway since the database was updated
+                # We don't want to fail the whole request just because the PDF update failed
             
             # Send email notification if user exists
             user_id = query_doc.get("user_id")

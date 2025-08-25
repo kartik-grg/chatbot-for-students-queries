@@ -1,6 +1,6 @@
 # Student Query Resolution Chatbot
 
-An intelligent AI-powered chatbot system designed to help resolve student queries efficiently using **Retrieval-Augmented Generation (RAG)** technology. The system features both user and admin interfaces, allowing for dynamic query handling, AI-powered responses, and comprehensive query management.
+An intelligent AI-powered chatbot system designed to help resolve student queries efficiently using **Retrieval-Augmented Generation (RAG)** technology. The system features both user and admin interfaces, allowing for dynamic query handling, AI-powered responses, and comprehensive query management with cloud storage integration.
 
 ## 🚀 Key Features
 
@@ -8,8 +8,8 @@ An intelligent AI-powered chatbot system designed to help resolve student querie
 - **RAG (Retrieval-Augmented Generation)** for intelligent responses
 - **Google AI (Gemini)** integration for natural language processing
 - **LangChain** framework for advanced language processing
-- **FAISS** vector database for semantic search
-- **PDF document processing** for knowledge base creation
+- **Pinecone** vector database for semantic search and embedding storage
+- **PDF document processing** for knowledge base creation with Cloudinary integration
 
 ### 🔐 User Authentication System
 - Secure user signup and login
@@ -28,6 +28,8 @@ An intelligent AI-powered chatbot system designed to help resolve student querie
 - Query analytics and statistics
 - Manage unanswered queries with bulk operations
 - Add and update responses manually
+- PDF management with Cloudinary integration
+- One-click embedding rebuilding for knowledge base updates
 - Email notification system for critical queries
 - Chat history management
 
@@ -36,14 +38,23 @@ An intelligent AI-powered chatbot system designed to help resolve student querie
 - Admin alerts for unanswered queries
 - Test email functionality for system verification
 
+### ☁️ Cloud Storage Integration
+- Cloudinary PDF storage for document management
+- PDF preview with Google Docs viewer
+- Original filename preservation
+- Public/private access management
+
 ## 🛠️ Technology Stack
 
 ### Backend (Flask)
 - **Flask 2.3.3** - Modern Python web framework
+- **Flask-CORS** - Cross-Origin Resource Sharing support
+- **Gunicorn** - WSGI HTTP Server for production deployment
 - **MongoDB with PyMongo** - NoSQL database for scalable data storage
 - **Google AI (Gemini)** - Advanced language model integration
 - **LangChain** - AI application framework
-- **FAISS** - Vector similarity search
+- **Pinecone** - Vector database for production-ready RAG systems
+- **Cloudinary** - Cloud-based PDF storage and management
 - **Flask-Mail** - Email service integration
 - **JWT** - Secure token-based authentication
 - **Flask-CORS** - Cross-origin resource sharing
@@ -63,6 +74,8 @@ An intelligent AI-powered chatbot system designed to help resolve student querie
 - **Pinecone** - Managed vector database for production RAG deployments
 - **TextBlob** - Text processing and analysis
 - **PyPDF2** - PDF document processing
+- **ReportLab** - PDF generation for Q&A documents
+- **Cloudinary SDK** - Cloud storage API integration
 
 ## 📡 API Endpoints
 
@@ -87,6 +100,14 @@ GET  /api/admin/chat-history  # Get all chat history (admin)
 GET  /api/admin/query-analytics # Get query analytics
 GET  /api/unanswered-queries  # Get pending queries
 DELETE /api/delete-query/<id> # Delete specific query
+```
+
+### 📄 PDF Management
+```http
+GET  /api/pdfs/               # List all PDFs
+POST /api/pdfs/upload         # Upload a PDF file
+DELETE /api/pdfs/<public_id>  # Delete a PDF
+POST /api/pdfs/rebuild-embeddings # Rebuild embeddings from PDFs
 ```
 
 ### 🔍 System Endpoints
@@ -191,7 +212,20 @@ cd frontend
 npm install
 ```
 
-3. **Start the development server:**
+3. **Configure environment variables:**
+```bash
+# Create .env.local file
+cp .env.local.example .env.local
+
+# Edit .env.local to set the API base URL
+# For development:
+VITE_API_BASE_URL=http://localhost:5000
+
+# For production (when deploying):
+# VITE_API_BASE_URL=https://your-backend-url.onrender.com
+```
+
+4. **Start the development server:**
 ```bash
 npm run dev
 ```
@@ -323,9 +357,42 @@ The system uses **Retrieval-Augmented Generation** to provide accurate, context-
 5. **Response Generation**: Relevant context + user query sent to Google AI for response generation
 
 ### Adding New Documents
-1. Place PDF files in `backend/resources/`
-2. Restart the application to rebuild embeddings
+1. Upload PDF files through the admin dashboard
+2. Rebuild embeddings using the dedicated button
 3. System automatically processes and indexes new content
+
+## 🚀 Deployment
+
+### Backend Deployment (Render)
+
+The backend is configured for deployment on Render.com:
+
+1. **Render.yaml Configuration**: The project includes a `render.yaml` file with all the necessary configuration for deployment on Render.
+
+2. **Environment Variables**: Make sure to set up all required environment variables in the Render Dashboard:
+   - `MONGODB_URI`
+   - `JWT_SECRET_KEY`
+   - `GOOGLE_API_KEY`
+   - All email configuration variables
+   - Cloudinary credentials
+   - Pinecone API key and environment
+
+3. **CORS Configuration**: The backend is configured to accept requests from the frontend domain. Make sure to update the `CORS_ALLOW_ORIGIN` environment variable with your frontend URL.
+
+### Frontend Deployment (Vercel/Netlify)
+
+1. **Build the frontend**:
+```bash
+cd frontend
+npm run build
+```
+
+2. **Environment Variables**: Set the `VITE_API_BASE_URL` to your deployed backend URL:
+```
+VITE_API_BASE_URL=https://your-backend-url.onrender.com
+```
+
+3. **Deploy**: Use Vercel, Netlify, or any static hosting service to deploy the `dist` folder.
 
 
 ## 🤝 Contributing

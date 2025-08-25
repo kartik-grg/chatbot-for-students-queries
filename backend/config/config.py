@@ -16,6 +16,12 @@ class Config:
     PINECONE_ENVIRONMENT = os.getenv("PINECONE_ENVIRONMENT")
     PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX_NAME", "student-chatbot")
     
+    # Cloudinary configuration
+    CLOUDINARY_CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME")
+    CLOUDINARY_API_KEY = os.getenv("CLOUDINARY_API_KEY")
+    CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET")
+    PDF_FOLDER = os.getenv("CLOUDINARY_PDF_FOLDER", "student_chatbot/pdfs")
+    
     # Mail configuration
     MAIL_SERVER = 'smtp.gmail.com'
     MAIL_PORT = 587
@@ -43,8 +49,8 @@ class Config:
     SESSION_TIMEOUT = 7200  # Session timeout after 2 hours
     
     # Admin credentials
-    ADMIN_EMAIL = "admin@example.com"
-    ADMIN_PASSWORD = "admin123"
+    ADMIN_EMAIL = os.getenv("ADMIN_EMAIL")
+    ADMIN_PASSWORD = os.getenv("ADMIN_PASS")
 
 class DevelopmentConfig(Config):
     """Development configuration"""
