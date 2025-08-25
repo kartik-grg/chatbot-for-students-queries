@@ -56,7 +56,6 @@ secure_scheme_headers = {
 # Log configuration
 capture_output = True
 logger_class = 'gunicorn.glogging.Logger'
-logconfig_dict = None  # Use default logging config
 
 # Flask application specific hooks
 def on_starting(server):
