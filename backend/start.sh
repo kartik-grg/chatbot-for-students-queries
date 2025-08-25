@@ -6,17 +6,24 @@ echo "Python version:"
 python --version
 
 echo "Installed packages:"
-pip freeze | grep -E 'flask|langchain|pinecone|cloudinary|gevent|gunicorn'
+pip freeze | grep -E 'flask|langchain|pinecone|cloudinary|uvicorn|gunicorn'
 
-# Determine worker class based on what's available
-if python -c "import gevent" 2>/dev/null; then
-    echo "Using gevent worker class"
-    WORKER_CLASS="gevent"
+# Determine worker class based on environment variable or what's available
+WORKER_CLASS=${GUNICORN_WORKER_CLASS:-"sync"}  # Default to sync if not set
+
+# Try to use uvicorn if available and not explicitly set
+if [ "$WORKER_CLASS" = "sync" ] && python -c "import uvicorn" 2>/dev/null; then
+    echo "Uvicorn is available, using uvicorn worker class"
+    WORKER_CLASS="uvicorn.workers.UvicornWorker"
 else
-    echo "Gevent not available, using sync worker class"
-    WORKER_CLASS="sync"
+    echo "Using $WORKER_CLASS worker class"
 fi
 
-# Start gunicorn
-echo "Starting gunicorn with $WORKER_CLASS worker class..."
-exec gunicorn --worker-class $WORKER_CLASS -c gunicorn_config.py app:app
+# Check for gunicorn config file
+if [ -f "gunicorn_config.py" ]; then
+    echo "Starting gunicorn with config file..."
+    exec gunicorn --worker-class $WORKER_CLASS -c gunicorn_config.py app:app
+else
+    echo "No gunicorn_config.py found, using default settings..."
+    exec gunicorn --worker-class $WORKER_CLASS --bind 0.0.0.0:$PORT app:app
+fi

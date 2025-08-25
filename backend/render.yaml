@@ -4,7 +4,7 @@ services:
     name: student-chatbot-api
     env: python
     region: oregon  # US West region
-    buildCommand: chmod +x build.sh && ./build.sh
+    buildCommand: pip install -r requirements.txt
     startCommand: chmod +x start.sh && ./start.sh
     healthCheckPath: /api/health
     # Only including essential environment variables for the service
@@ -15,7 +15,7 @@ services:
       - key: FLASK_ENV
         value: production
       - key: PYTHON_VERSION
-        value: 3.10.0
+        value: 3.9.18
       - key: GUNICORN_WORKER_CLASS
         value: sync
       - key: CORS_ORIGINS

@@ -11,19 +11,19 @@ flask-mail==0.9.1
 # Database
 pymongo==4.5.0
 
-# AI and ML dependencies
-langchain==0.1.4
-langchain-core>=0.1.0,<0.2.0
-langchain-google-genai==1.0.1
-langchain-community>=0.0.14,<0.1.0
-pinecone-client>=3.1.0  # Updated to support Python 3.13.4
-langchain-pinecone>=0.2.3  # Updated to latest compatible version
+# AI and ML dependencies - Using a combination that works together with Python 3.10
+# Removing specific versions and letting pip resolve dependencies
+langchain
+langchain-core
+langchain-google-genai
+langchain-community
+pinecone-client>=2.2.0
+langchain-pinecone
 textblob==0.15.3
 
 # PDF processing
 PyPDF2==3.0.1
 reportlab==4.0.4
-# Ensure compatibility with Python 3.10
 cryptography>=40.0.0
 cffi>=1.15.1
 
@@ -36,12 +36,13 @@ python-multipart==0.0.6
 cloudinary==1.36.0
 # flask-cloudinary==1.0.0  # This package might not exist, using only cloudinary is sufficient
 Flask-Uploads==0.2.1
-Werkzeug==2.3.7  # Required by Flask 2.3.3
+Werkzeug==2.3.7 
 
 # Production server
 gunicorn==21.2.0
-# Using an older version of gevent that has pre-built wheels available for Python 3.10
-gevent==22.10.2  # Using older version that has wheels for better compatibility
+# No gevent due to Python 3.12 compatibility issues
+# Using alternative worker types for gunicorn
+uvicorn==0.28.0  # Alternative worker for gunicorn
 
 # Development dependencies (optional)
 pytest==7.4.2
