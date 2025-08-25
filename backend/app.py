@@ -49,7 +49,15 @@ def create_app(config_name='default'):
     app.config.from_object(config[config_name])
     
     # Initialize extensions
-    cors = CORS(app)
+    # Get CORS origins from environment variable - supports multiple comma-separated origins
+    cors_origins = os.environ.get('CORS_ORIGINS', '*').split(',')
+    cors_origins = [origin.strip() for origin in cors_origins if origin.strip()]
+    
+    cors = CORS(
+        app, 
+        resources={r"/api/*": {"origins": cors_origins}},
+        supports_credentials=True
+    )
     mail = Mail(app)
     
     # Initialize Cloudinary
@@ -147,8 +155,14 @@ def create_app(config_name='default'):
     
     # Health check endpoint
     @app.route('/health', methods=['GET'])
+    @app.route('/api/health', methods=['GET'])  # Adding API prefix for Render health checks
     def health_check():
-        return {"status": "healthy", "message": "Student Chatbot API is running"}, 200
+        return jsonify({
+            "status": "healthy",
+            "message": "Student Chatbot API is running", 
+            "timestamp": datetime.now().isoformat(),
+            "environment": os.environ.get("FLASK_ENV", "development")
+        }), 200
     
     # Debug endpoint to list all routes
     @app.route('/debug/routes', methods=['GET'])

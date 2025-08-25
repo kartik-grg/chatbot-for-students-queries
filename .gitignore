@@ -29,7 +29,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+/lib/
 lib64/
 parts/
 sdist/
@@ -121,12 +121,20 @@ celerybeat.pid
 
 # Environments
 .env
+.env.production
+.env.local
+.env.*.local
 .venv
 env/
 venv/
 ENV/
 env.bak/
 venv.bak/
+
+# Deployment specific
+.vercel
+.render/
+__render_build__/
 
 # Spyder project settings
 .spyderproject
