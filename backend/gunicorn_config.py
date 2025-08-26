@@ -36,7 +36,8 @@ keepalive = int(os.environ.get('KEEP_ALIVE', 5))
 bind = f"0.0.0.0:{os.environ.get('PORT', '10000')}"
 accesslog = '-'  # Log to stdout for Render
 errorlog = '-'   # Log to stderr for Render
-loglevel = os.environ.get('GUNICORN_LOG_LEVEL', 'info')
+loglevel = os.environ.get('GUNICORN_LOG_LEVEL', 'debug')  # Changed to debug for more details
+capture_output = True  # Capture stdout/stderr from workers
 
 # Process naming
 proc_name = 'student-chatbot-api'

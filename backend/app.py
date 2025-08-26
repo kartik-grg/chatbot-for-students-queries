@@ -53,9 +53,17 @@ def create_app(config_name='default'):
     cors_origins = os.environ.get('CORS_ORIGINS', '*').split(',')
     cors_origins = [origin.strip() for origin in cors_origins if origin.strip()]
     
+    # Log CORS origins for debugging
+    print(f"Configured CORS origins: {cors_origins}")
+    
+    # Apply CORS with comprehensive configuration
     cors = CORS(
         app, 
-        resources={r"/api/*": {"origins": cors_origins}},
+        resources={r"/*": {
+            "origins": cors_origins,
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization", "X-Requested-With"]
+        }},
         supports_credentials=True
     )
     mail = Mail(app)

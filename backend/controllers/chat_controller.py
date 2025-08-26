@@ -14,10 +14,20 @@ class ChatController:
     def query(self):
         """Handle user query"""
         try:
+            # Log request details for debugging
+            print(f"Query request received: {request.method} {request.path}")
+            print(f"Request headers: {dict(request.headers)}")
+            
             data = request.json
+            if not data:
+                print("No JSON data in request")
+                return jsonify({"error": "No data provided or invalid JSON"}), 400
+                
             question = data.get("question")
             session_id = data.get("session_id")
             user_token = request.headers.get('Authorization')
+            
+            print(f"Processing query: '{question}' (session: {session_id})")
             
             if not question:
                 return jsonify({"error": "Question not provided"}), 400
@@ -25,14 +35,23 @@ class ChatController:
             # Extract user_id from token if available
             user_id = None
             if user_token:
-                payload = decode_token(user_token)
-                if payload:
-                    user_id = payload.get('user_id')
+                try:
+                    payload = decode_token(user_token)
+                    if payload:
+                        user_id = payload.get('user_id')
+                        print(f"Authenticated user: {user_id}")
+                except Exception as token_error:
+                    print(f"Error decoding token: {str(token_error)}")
+                    # Continue without user_id
             
             result, status_code = self.chat_service.process_query(question, session_id, user_id)
+            print(f"Query processed successfully with status {status_code}")
             return jsonify(result), status_code
             
         except Exception as e:
+            import traceback
+            print(f"Query processing failed with error: {str(e)}")
+            print(traceback.format_exc())
             return jsonify({"error": f"Query processing failed: {str(e)}"}), 500
     
     def get_chat_history(self):

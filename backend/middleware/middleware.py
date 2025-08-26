@@ -14,20 +14,36 @@ class CORSMiddleware:
     
     def after_request(self, response):
         """Add CORS headers to response"""
-        # Get origins from environment variable
-        cors_origins = os.environ.get('CORS_ORIGINS', '*')
+        # Get origins from environment variable and handle multiple origins
+        cors_origins_str = os.environ.get('CORS_ORIGINS', '*')
+        
+        # Get the origin from the request
+        origin = request.headers.get('Origin')
+        
+        # Check if the origin is allowed
+        if cors_origins_str == '*':
+            # If wildcard is set, allow any origin
+            allowed_origin = origin if origin else '*'
+        else:
+            # Check if the request origin matches any in our list
+            cors_origins = [o.strip() for o in cors_origins_str.split(',') if o.strip()]
+            allowed_origin = origin if origin in cors_origins else cors_origins[0] if cors_origins else '*'
+        
+        # Log the origin for debugging
+        print(f"Request from origin: {origin}, allowed origin: {allowed_origin}")
         
         # Handle preflight OPTIONS request
         if request.method == 'OPTIONS':
-            response.headers.add('Access-Control-Allow-Origin', cors_origins)
-            response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+            response.headers.add('Access-Control-Allow-Origin', allowed_origin)
+            response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With')
             response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
             response.headers.add('Access-Control-Allow-Credentials', 'true')
             response.headers.add('Access-Control-Max-Age', '3600')
         else:
-            response.headers.add('Access-Control-Allow-Origin', cors_origins)
-            response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+            response.headers.add('Access-Control-Allow-Origin', allowed_origin)
+            response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With')
             response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+            response.headers.add('Access-Control-Allow-Credentials', 'true')
             response.headers.add('Access-Control-Allow-Credentials', 'true')
             
         return response
@@ -95,5 +111,17 @@ class ErrorHandlingMiddleware:
     
     def handle_exception(self, error):
         """Handle general exceptions"""
+        import traceback
+        error_traceback = traceback.format_exc()
         print(f"Unhandled exception: {str(error)}")
-        return jsonify({'error': 'An unexpected error occurred'}), 500
+        print(f"Traceback: {error_traceback}")
+        
+        # Return a detailed error message in non-production environments
+        if os.environ.get('FLASK_ENV') != 'production':
+            return jsonify({
+                'error': 'An unexpected error occurred',
+                'message': str(error),
+                'traceback': error_traceback.split('\n')
+            }), 500
+        else:
+            return jsonify({'error': 'An unexpected error occurred'}), 500
