@@ -28,8 +28,8 @@ if use_gevent:
 worker_connections = 1000
 
 # Timeout configuration
-timeout = int(os.environ.get('TIMEOUT', 120))  # Longer timeout for PDF processing
-graceful_timeout = int(os.environ.get('GRACEFUL_TIMEOUT', 30))
+timeout = int(os.environ.get('TIMEOUT', 300))  # Much longer timeout (5 min) for embedding processing
+graceful_timeout = int(os.environ.get('GRACEFUL_TIMEOUT', 60))
 keepalive = int(os.environ.get('KEEP_ALIVE', 5))
 
 # Server configuration

@@ -264,6 +264,15 @@ class ChatService:
             error_msg = f"Error processing query: {str(e)}"
             print("\nError:", error_msg)
             print("="*50 + "\n")
+            
+            # Check if this is a timeout error from the embedding service
+            if "504 Deadline Exceeded" in str(e) or "Error embedding content" in str(e):
+                return {
+                    "error": "The AI service is currently experiencing high demand. Please try again in a few moments.",
+                    "user_friendly_error": True,
+                    "session_id": session_id
+                }, 503  # Service Unavailable
+            
             return {
                 "error": error_msg,
                 "session_id": session_id

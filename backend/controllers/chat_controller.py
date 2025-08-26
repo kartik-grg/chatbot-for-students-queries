@@ -33,7 +33,14 @@ class ChatController:
             return jsonify(result), status_code
             
         except Exception as e:
-            return jsonify({"error": f"Query processing failed: {str(e)}"}), 500
+            error_msg = str(e)
+            # Check if this is a timeout error from the embedding service
+            if "504 Deadline Exceeded" in error_msg or "Error embedding content" in error_msg:
+                return jsonify({
+                    "error": "The AI service is currently experiencing high demand. Please try again in a few moments.",
+                    "user_friendly_error": True
+                }), 503  # Service Unavailable
+            return jsonify({"error": f"Query processing failed: {error_msg}"}), 500
     
     def get_chat_history(self):
         """Get user's chat history"""

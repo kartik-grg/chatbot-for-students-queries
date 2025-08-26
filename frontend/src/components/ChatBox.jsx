@@ -230,9 +230,20 @@ function ChatBox({ onClose }) {
       // Force scroll after response is added
       setTimeout(scrollToBottom, 50);
     } catch (error) {
-      const errorResponse = error.response && error.response.status === 404
-        ? "We couldn't find an answer to your question at the moment. Don't worry — your query has been logged, and if you're logged in, you'll be notified as soon as we have a response."
-        : "Sorry, something went wrong. Please try again.";
+      let errorResponse;
+      
+      if (error.response) {
+        if (error.response.status === 404) {
+          errorResponse = "We couldn't find an answer to your question at the moment. Don't worry — your query has been logged, and if you're logged in, you'll be notified as soon as we have a response.";
+        } else if (error.response.status === 503 && error.response.data && error.response.data.error) {
+          // Use the user-friendly error message from the backend
+          errorResponse = error.response.data.error;
+        } else {
+          errorResponse = "Sorry, something went wrong. Please try again.";
+        }
+      } else {
+        errorResponse = "Network error. Please check your connection and try again.";
+      }
       
       // Update the last message with the error response
       setChatHistory((prev) => {
