@@ -18,5 +18,3 @@ services:
         value: 3.9.18
       - key: GUNICORN_WORKER_CLASS
         value: sync
-      - key: CORS_ORIGINS
-        value: https://chatbot-for-students-queries.onrender.com

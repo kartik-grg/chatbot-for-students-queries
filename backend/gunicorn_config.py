@@ -12,12 +12,19 @@ default_workers = 1 if is_free_tier else (cpu_count * 2) + 1
 # Worker configuration
 workers = int(os.environ.get('WEB_CONCURRENCY', default_workers))
 threads = int(os.environ.get('THREADS', 2))
-# Try to use uvicorn worker if available, otherwise fall back to sync
-try:
-    import uvicorn
-    worker_class = 'uvicorn.workers.UvicornWorker'  # Using uvicorn for better async performance
-except ImportError:
-    worker_class = os.environ.get('GUNICORN_WORKER_CLASS', 'sync')  # Fallback to sync worker
+# Use sync workers for Flask (WSGI) app to avoid ASGI/WSGI compatibility issues
+worker_class = 'sync'  # Standard synchronous workers for WSGI apps
+
+# Check if gevent is available and use it for better performance
+use_gevent = os.environ.get('USE_GEVENT', 'false').lower() == 'true'
+if use_gevent:
+    try:
+        import gevent
+        worker_class = 'gevent'  # Using gevent for better performance if available
+    except ImportError:
+        # Gevent not available, staying with sync worker
+        pass
+
 worker_connections = 1000
 
 # Timeout configuration

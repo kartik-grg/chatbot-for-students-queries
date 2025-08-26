@@ -41,8 +41,7 @@ Werkzeug==2.3.7
 # Production server
 gunicorn==21.2.0
 # No gevent due to Python 3.12 compatibility issues
-# Using alternative worker types for gunicorn
-uvicorn==0.28.0  # Alternative worker for gunicorn
+# Using sync worker type for gunicorn by default
 
 # Development dependencies (optional)
 pytest==7.4.2

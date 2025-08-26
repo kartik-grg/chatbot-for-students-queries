@@ -8,13 +8,20 @@ python --version
 echo "Installed packages:"
 pip freeze | grep -E 'flask|langchain|pinecone|cloudinary|uvicorn|gunicorn'
 
-# Determine worker class based on environment variable or what's available
+# Determine worker class based on environment variable
 WORKER_CLASS=${GUNICORN_WORKER_CLASS:-"sync"}  # Default to sync if not set
+export USE_GEVENT=false  # Disable gevent by default
 
-# Try to use uvicorn if available and not explicitly set
-if [ "$WORKER_CLASS" = "sync" ] && python -c "import uvicorn" 2>/dev/null; then
-    echo "Uvicorn is available, using uvicorn worker class"
-    WORKER_CLASS="uvicorn.workers.UvicornWorker"
+# For Flask (WSGI) applications, we should use sync or gevent workers
+# ASGI workers like uvicorn will cause compatibility issues
+if [ "$WORKER_CLASS" = "gevent" ]; then
+    if python -c "import gevent" 2>/dev/null; then
+        echo "Using gevent worker class"
+        export USE_GEVENT=true
+    else
+        echo "Gevent not available, falling back to sync worker"
+        WORKER_CLASS="sync"
+    fi
 else
     echo "Using $WORKER_CLASS worker class"
 fi
