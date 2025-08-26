@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { FaUserGraduate } from "react-icons/fa";
 import GradientText from "./ui/GradientText";
-import axios from "axios";
+import { api } from "../lib/api";
 
 function UserLogin() {
   const [credentials, setCredentials] = useState({
@@ -22,7 +22,7 @@ function UserLogin() {
     }
     // console.log(credentials)
     try {
-      const response = await axios.post("/api/login", {
+      const response = await api.post("/api/login", {
         username: credentials.username,
         password: credentials.password,
       });
