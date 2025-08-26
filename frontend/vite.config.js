@@ -6,10 +6,15 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:5000', // Flask server
+        target: process.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000',
         changeOrigin: true,
-        // Preserve the trailing slashes
+        secure: false,
         rewrite: (path) => path,
+        configure: (proxy, _options) => {
+          proxy.on('error', (err) => {
+            console.log('Proxy error:', err);
+          });
+        }
       },
     },
   },
