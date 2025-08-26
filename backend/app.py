@@ -246,5 +246,8 @@ def main():
     
     app.run(host='0.0.0.0', port=port, debug=debug_mode)
 
+# Create a global app object for Gunicorn to use
+app = create_app(os.getenv('FLASK_ENV', 'production'))
+
 if __name__ == "__main__":
     main()
