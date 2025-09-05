@@ -25,6 +25,9 @@ class ChatController:
             # Extract user_id from token if available
             user_id = None
             if user_token:
+                # Remove 'Bearer ' prefix if present
+                if user_token.startswith('Bearer '):
+                    user_token = user_token[7:]
                 payload = decode_token(user_token)
                 if payload:
                     user_id = payload.get('user_id')
@@ -49,6 +52,10 @@ class ChatController:
             if not user_token:
                 return jsonify({"error": "Authentication required"}), 401
             
+            # Remove 'Bearer ' prefix if present
+            if user_token.startswith('Bearer '):
+                user_token = user_token[7:]
+                
             payload = decode_token(user_token)
             if not payload:
                 return jsonify({"error": "Invalid token"}), 401
