@@ -9,9 +9,9 @@ cpu_count = multiprocessing.cpu_count()
 is_free_tier = os.environ.get('RENDER_SERVICE_TYPE', '') == 'free'
 default_workers = 1 if is_free_tier else (cpu_count * 2) + 1
 
-# Worker configuration
-workers = int(os.environ.get('WEB_CONCURRENCY', default_workers))
-threads = int(os.environ.get('THREADS', 2))
+# Worker configuration - Optimized for AI workloads
+workers = int(os.environ.get('WEB_CONCURRENCY', min(default_workers, 2)))  # Limit workers for memory
+threads = int(os.environ.get('THREADS', 1))  # Single thread per worker for AI processing
 # Use sync workers for Flask (WSGI) app to avoid ASGI/WSGI compatibility issues
 worker_class = 'sync'  # Standard synchronous workers for WSGI apps
 
@@ -27,10 +27,10 @@ if use_gevent:
 
 worker_connections = 1000
 
-# Timeout configuration
-timeout = int(os.environ.get('TIMEOUT', 300))  # Much longer timeout (5 min) for embedding processing
-graceful_timeout = int(os.environ.get('GRACEFUL_TIMEOUT', 60))
-keepalive = int(os.environ.get('KEEP_ALIVE', 5))
+# Timeout configuration - Extended for AI processing
+timeout = int(os.environ.get('TIMEOUT', 600))  # 10 minutes for AI processing
+graceful_timeout = int(os.environ.get('GRACEFUL_TIMEOUT', 120))  # 2 minutes for graceful shutdown
+keepalive = int(os.environ.get('KEEP_ALIVE', 10))  # Keep connections alive longer
 
 # Server configuration
 bind = f"0.0.0.0:{os.environ.get('PORT', '10000')}"

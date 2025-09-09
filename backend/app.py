@@ -208,6 +208,29 @@ def create_app(config_name='default'):
             "environment": os.environ.get("FLASK_ENV", "development")
         }), 200
     
+    # Debug endpoint to test query endpoint without AI processing
+    @app.route('/debug/query', methods=['POST', 'OPTIONS'])
+    def test_query():
+        if request.method == 'OPTIONS':
+            return '', 200
+        
+        try:
+            data = request.json
+            question = data.get("question", "test question")
+            
+            return jsonify({
+                "status": "Query endpoint test successful",
+                "received_question": question,
+                "mock_answer": f"This is a mock response to: {question}",
+                "vectorstore_available": vectorstore_global is not None,
+                "timestamp": datetime.now().isoformat()
+            }), 200
+        except Exception as e:
+            return jsonify({
+                "error": f"Query test failed: {str(e)}",
+                "timestamp": datetime.now().isoformat()
+            }), 500
+    
     # Debug endpoint to test email service
     @app.route('/debug/email', methods=['GET'])
     def test_email():

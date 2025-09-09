@@ -8,9 +8,27 @@ python --version
 echo "Installed packages:"
 pip freeze | grep -E 'flask|langchain|pinecone|cloudinary|uvicorn|gunicorn'
 
+# Set environment variables for better AI processing
+export GOOGLE_APPLICATION_CREDENTIALS_JSON="${GOOGLE_APPLICATION_CREDENTIALS:-}"
+export LANGCHAIN_TRACING_V2="true"
+export PYTHONUNBUFFERED=1
+
 # Determine worker class based on environment variable
 WORKER_CLASS=${GUNICORN_WORKER_CLASS:-"sync"}  # Default to sync if not set
 export USE_GEVENT=false  # Disable gevent by default
+
+# Set optimized settings for AI processing
+export WEB_CONCURRENCY=${WEB_CONCURRENCY:-1}  # Single worker for AI processing
+export THREADS=${THREADS:-1}                  # Single thread per worker
+export TIMEOUT=${TIMEOUT:-600}                # 10 minute timeout
+export GRACEFUL_TIMEOUT=${GRACEFUL_TIMEOUT:-120}  # 2 minute graceful timeout
+
+echo "Environment settings:"
+echo "  Worker class: $WORKER_CLASS"
+echo "  Workers: ${WEB_CONCURRENCY}"
+echo "  Threads: ${THREADS}"
+echo "  Timeout: ${TIMEOUT}s"
+echo "  Graceful timeout: ${GRACEFUL_TIMEOUT}s"
 
 # For Flask (WSGI) applications, we should use sync or gevent workers
 # ASGI workers like uvicorn will cause compatibility issues

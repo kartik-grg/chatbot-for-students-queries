@@ -10,6 +10,7 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
   withCredentials: true, // Important for CORS with credentials
+  timeout: 600000, // 10 minutes timeout for AI processing
 });
 
 // Add request interceptor to include token with every request

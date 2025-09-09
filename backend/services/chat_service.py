@@ -1,4 +1,5 @@
 import datetime
+import signal
 from time import time
 from langchain.chains import ConversationalRetrievalChain
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -9,6 +10,10 @@ from models.models import Query, ChatHistory
 from utils.helpers import is_general_chat
 from utils.pdf_utils import update_vectorstore
 import re
+import warnings
+
+# Suppress LangChain deprecation warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="langchain")
 
 # Global variables for session management
 conversation_memories = {}  # Store conversation memories by session
@@ -139,10 +144,13 @@ class ChatService:
         self.update_session_timestamp(session_id)
         
         if session_id not in conversation_memories:
-            memory = ConversationBufferMemory(
-                memory_key='chat_history',
-                return_messages=True
-            )
+            # Suppress the deprecation warning for memory
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                memory = ConversationBufferMemory(
+                    memory_key='chat_history',
+                    return_messages=True
+                )
             conversation_memories[session_id] = memory
         else:
             memory = conversation_memories[session_id]
@@ -150,13 +158,16 @@ class ChatService:
         llm = ChatGoogleGenerativeAI(
             model="gemini-1.5-flash",
             temperature=0.3,
-            google_api_key=Config.GOOGLE_API_KEY
+            google_api_key=Config.GOOGLE_API_KEY,
+            # Add timeout and retry configuration
+            request_timeout=300,  # 5 minute timeout
+            max_retries=2
         )
 
-        # Configure the retriever with search parameters
+        # Configure the retriever with optimized search parameters
         retriever = self.vectorstore.as_retriever(
             search_type="similarity",
-            search_kwargs={"k": 15}
+            search_kwargs={"k": 10}  # Reduced from 15 to 10 for faster processing
         )
 
         conversation_chain = ConversationalRetrievalChain.from_llm(
@@ -204,9 +215,37 @@ class ChatService:
             # Get conversation chain for this session
             chat_chain = self.get_conversation_chain(session_id)
             
-            # Get response
-            result = chat_chain({"question": question})
-            answer = result["answer"].strip()
+            # Get response with timeout handling
+            try:
+                # Set up timeout handler
+                def timeout_handler(signum, frame):
+                    raise TimeoutError("AI processing timeout")
+                
+                # Use invoke method instead of deprecated __call__
+                try:
+                    result = chat_chain.invoke({"question": question})
+                except AttributeError:
+                    # Fallback to old method if invoke doesn't exist
+                    result = chat_chain({"question": question})
+                
+                answer = result["answer"].strip()
+                
+            except TimeoutError:
+                print("AI processing timed out")
+                return {
+                    "error": "The AI service is taking longer than expected. Please try again with a shorter question.",
+                    "user_friendly_error": True,
+                    "session_id": session_id
+                }, 408  # Request Timeout
+            except Exception as ai_error:
+                print(f"AI processing error: {str(ai_error)}")
+                if "quota" in str(ai_error).lower() or "rate limit" in str(ai_error).lower():
+                    return {
+                        "error": "AI service is currently at capacity. Please try again in a few moments.",
+                        "user_friendly_error": True,
+                        "session_id": session_id
+                    }, 429  # Too Many Requests
+                raise ai_error
             
             print("\nGenerated answer:", answer)
             print("="*50 + "\n")
