@@ -113,11 +113,14 @@ def get_vector_store(text_chunks, metadatas=None):
                 metric="cosine"
             )
         
-        # Create embeddings
+        # Create embeddings with retry logic
         embeddings = GoogleGenerativeAIEmbeddings(
             model="models/embedding-001",
             google_api_key=Config.GOOGLE_API_KEY,
-            task_type="retrieval_query" 
+            task_type="retrieval_query",
+            # Add timeout and retry settings from config
+            request_timeout=Config.GOOGLE_AI_TIMEOUT,
+            max_retries=Config.GOOGLE_AI_MAX_RETRIES
         )
         
         # Create and return the vector store
@@ -139,7 +142,9 @@ def get_vector_store(text_chunks, metadatas=None):
         embeddings = GoogleGenerativeAIEmbeddings(
             model="models/embedding-001", 
             google_api_key=Config.GOOGLE_API_KEY,
-            task_type="retrieval_query"
+            task_type="retrieval_query",
+            request_timeout=Config.GOOGLE_AI_TIMEOUT,
+            max_retries=Config.GOOGLE_AI_MAX_RETRIES
         )
         
         vectorstore = PineconeVectorStore.from_texts(

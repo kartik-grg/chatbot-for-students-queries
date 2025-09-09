@@ -11,9 +11,35 @@ from utils.helpers import is_general_chat
 from utils.pdf_utils import update_vectorstore
 import re
 import warnings
+import time
+import random
+from functools import wraps
 
 # Suppress LangChain deprecation warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="langchain")
+
+def retry_with_exponential_backoff(max_retries=3, base_delay=1):
+    """Decorator for retrying function calls with exponential backoff"""
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    error_str = str(e).lower()
+                    # Check if it's a retryable error
+                    if any(keyword in error_str for keyword in ['timeout', '504', '503', '502', 'deadline', 'rate limit']):
+                        if attempt < max_retries - 1:
+                            # Exponential backoff with jitter
+                            delay = base_delay * (2 ** attempt) + random.uniform(0, 1)
+                            print(f"Attempt {attempt + 1} failed, retrying in {delay:.2f} seconds: {str(e)}")
+                            time.sleep(delay)
+                            continue
+                    raise e
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator
 
 # Global variables for session management
 conversation_memories = {}  # Store conversation memories by session
@@ -159,9 +185,13 @@ class ChatService:
             model="gemini-1.5-flash",
             temperature=0.3,
             google_api_key=Config.GOOGLE_API_KEY,
-            # Add timeout and retry configuration
-            request_timeout=300,  # 5 minute timeout
-            max_retries=2
+            # Add timeout and retry configuration from config
+            timeout=Config.GOOGLE_AI_TIMEOUT,
+            max_retries=Config.GOOGLE_AI_MAX_RETRIES,
+            # Additional parameters for better reliability
+            max_output_tokens=2048,
+            top_p=0.8,
+            top_k=40
         )
 
         # Configure the retriever with optimized search parameters
@@ -215,19 +245,18 @@ class ChatService:
             # Get conversation chain for this session
             chat_chain = self.get_conversation_chain(session_id)
             
-            # Get response with timeout handling
-            try:
-                # Set up timeout handler
-                def timeout_handler(signum, frame):
-                    raise TimeoutError("AI processing timeout")
-                
+            # Get response with timeout handling and retry logic
+            @retry_with_exponential_backoff(max_retries=3, base_delay=2)
+            def call_ai_chain():
                 # Use invoke method instead of deprecated __call__
                 try:
-                    result = chat_chain.invoke({"question": question})
+                    return chat_chain.invoke({"question": question})
                 except AttributeError:
                     # Fallback to old method if invoke doesn't exist
-                    result = chat_chain({"question": question})
-                
+                    return chat_chain({"question": question})
+            
+            try:
+                result = call_ai_chain()
                 answer = result["answer"].strip()
                 
             except TimeoutError:
@@ -239,12 +268,26 @@ class ChatService:
                 }, 408  # Request Timeout
             except Exception as ai_error:
                 print(f"AI processing error: {str(ai_error)}")
-                if "quota" in str(ai_error).lower() or "rate limit" in str(ai_error).lower():
+                error_str = str(ai_error).lower()
+                
+                if "quota" in error_str or "rate limit" in error_str:
                     return {
                         "error": "AI service is currently at capacity. Please try again in a few moments.",
                         "user_friendly_error": True,
                         "session_id": session_id
                     }, 429  # Too Many Requests
+                elif "504" in error_str or "deadline exceeded" in error_str or "timeout" in error_str:
+                    return {
+                        "error": "The AI service is taking longer than expected to process your query. Please try again with a simpler question or wait a moment and retry.",
+                        "user_friendly_error": True,
+                        "session_id": session_id
+                    }, 408  # Request Timeout
+                elif "embedding" in error_str:
+                    return {
+                        "error": "There was an issue processing your query for search. Please try rephrasing your question or try again later.",
+                        "user_friendly_error": True,
+                        "session_id": session_id
+                    }, 503  # Service Unavailable
                 raise ai_error
             
             print("\nGenerated answer:", answer)

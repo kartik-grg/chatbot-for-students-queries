@@ -137,7 +137,9 @@ def create_app(config_name='default'):
             embeddings = GoogleGenerativeAIEmbeddings(
                 model="models/embedding-001",
                 google_api_key=app.config.get('GOOGLE_API_KEY'),
-                task_type="retrieval_query"
+                task_type="retrieval_query",
+                request_timeout=app.config.get('GOOGLE_AI_TIMEOUT', 60),
+                max_retries=app.config.get('GOOGLE_AI_MAX_RETRIES', 3)
             )
             
             vectorstore_global = PineconeVectorStore(
@@ -228,6 +230,38 @@ def create_app(config_name='default'):
         except Exception as e:
             return jsonify({
                 "error": f"Query test failed: {str(e)}",
+                "timestamp": datetime.now().isoformat()
+            }), 500
+    
+    # Debug endpoint to test Google AI connectivity
+    @app.route('/debug/google-ai', methods=['GET'])
+    def test_google_ai():
+        try:
+            from langchain_google_genai import GoogleGenerativeAIEmbeddings
+            
+            # Test embedding creation with a simple text
+            embeddings = GoogleGenerativeAIEmbeddings(
+                model="models/embedding-001",
+                google_api_key=app.config.get('GOOGLE_API_KEY'),
+                task_type="retrieval_query",
+                request_timeout=15,  # Short timeout for test
+                max_retries=1
+            )
+            
+            # Try to embed a simple test text
+            test_vector = embeddings.embed_query("This is a test query")
+            
+            return jsonify({
+                "status": "Google AI test successful",
+                "embedding_dimension": len(test_vector) if test_vector else 0,
+                "api_key_configured": bool(app.config.get('GOOGLE_API_KEY')),
+                "timestamp": datetime.now().isoformat()
+            }), 200
+        except Exception as e:
+            return jsonify({
+                "status": "Google AI test failed",
+                "error": str(e),
+                "api_key_configured": bool(app.config.get('GOOGLE_API_KEY')),
                 "timestamp": datetime.now().isoformat()
             }), 500
     

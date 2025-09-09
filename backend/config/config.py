@@ -10,6 +10,10 @@ class Config:
     MONGODB_URI = os.getenv("MONGO_URI")
     GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
     LANGSMITH_API_KEY = os.getenv("LANGSMITH_API_KEY")
+    
+    # Google AI configuration
+    GOOGLE_AI_TIMEOUT = int(os.getenv("GOOGLE_AI_TIMEOUT", "30"))  # Default 30 seconds
+    GOOGLE_AI_MAX_RETRIES = int(os.getenv("GOOGLE_AI_MAX_RETRIES", "3"))  # Default 3 retries
 
     # Pinecone configuration
     PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
