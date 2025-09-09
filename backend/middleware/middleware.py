@@ -15,20 +15,46 @@ class CORSMiddleware:
     def after_request(self, response):
         """Add CORS headers to response"""
         # Get origins from environment variable
-        cors_origins = os.environ.get('CORS_ORIGINS', '*')
+        cors_origins_env = os.environ.get('CORS_ORIGINS', '')
+        
+        # Determine allowed origins
+        if cors_origins_env:
+            # If specific origins are configured, use them
+            allowed_origins = [origin.strip() for origin in cors_origins_env.split(',') if origin.strip()]
+        else:
+            # Fallback to wildcard for development or if not configured
+            allowed_origins = ['*']
+        
+        # Check if the request origin is allowed
+        origin = request.headers.get('Origin')
+        
+        if '*' in allowed_origins or not origin:
+            # Allow all origins or no origin header present
+            cors_origin = '*' if not origin else origin
+        else:
+            # Check if origin matches any allowed pattern
+            cors_origin = None
+            for allowed in allowed_origins:
+                if allowed.endswith('.vercel.app') and origin and origin.endswith('.vercel.app'):
+                    cors_origin = origin
+                    break
+                elif allowed == origin:
+                    cors_origin = origin
+                    break
+            
+            # If no match found, don't add CORS headers (will be blocked)
+            if not cors_origin:
+                return response
+        
+        # Add CORS headers
+        response.headers.add('Access-Control-Allow-Origin', cors_origin)
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+        response.headers.add('Access-Control-Allow-Credentials', 'true')
         
         # Handle preflight OPTIONS request
         if request.method == 'OPTIONS':
-            response.headers.add('Access-Control-Allow-Origin', cors_origins)
-            response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-            response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
-            response.headers.add('Access-Control-Allow-Credentials', 'true')
             response.headers.add('Access-Control-Max-Age', '3600')
-        else:
-            response.headers.add('Access-Control-Allow-Origin', cors_origins)
-            response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-            response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
-            response.headers.add('Access-Control-Allow-Credentials', 'true')
             
         return response
 

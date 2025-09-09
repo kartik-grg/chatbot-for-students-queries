@@ -50,12 +50,33 @@ def create_app(config_name='default'):
     
     # Initialize extensions
     # Get CORS origins from environment variable - supports multiple comma-separated origins
-    cors_origins = os.environ.get('CORS_ORIGINS', '*').split(',')
-    cors_origins = [origin.strip() for origin in cors_origins if origin.strip()]
+    cors_origins_env = os.environ.get('CORS_ORIGINS', '')
+    
+    if cors_origins_env:
+        cors_origins = [origin.strip() for origin in cors_origins_env.split(',') if origin.strip()]
+    else:
+        # Fallback origins for development and common deployment platforms
+        cors_origins = [
+            'http://localhost:3000',
+            'http://localhost:5173', 
+            'http://127.0.0.1:3000',
+            'http://127.0.0.1:5173',
+            'https://*.vercel.app',
+            'https://*.netlify.app'
+        ]
+    
+    print(f"CORS Origins configured: {cors_origins}")
     
     cors = CORS(
         app, 
-        resources={r"/api/*": {"origins": cors_origins}},
+        resources={
+            r"/api/*": {
+                "origins": cors_origins,
+                "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+                "allow_headers": ["Content-Type", "Authorization"],
+                "supports_credentials": True
+            }
+        },
         supports_credentials=True
     )
     mail = Mail(app)
@@ -175,6 +196,17 @@ def create_app(config_name='default'):
                 "url": str(rule)
             })
         return {"routes": routes}, 200
+    
+    # Debug endpoint to test CORS and environment
+    @app.route('/debug/cors', methods=['GET', 'OPTIONS'])
+    def test_cors():
+        return jsonify({
+            "status": "CORS test successful",
+            "cors_origins": cors_origins,
+            "request_origin": request.headers.get('Origin'),
+            "method": request.method,
+            "environment": os.environ.get("FLASK_ENV", "development")
+        }), 200
     
     # Debug endpoint to test email service
     @app.route('/debug/email', methods=['GET'])
