@@ -1,6 +1,6 @@
 import datetime
 import signal
-from time import time
+import time
 from langchain.chains import ConversationalRetrievalChain
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.memory import ConversationBufferMemory
@@ -11,7 +11,6 @@ from utils.helpers import is_general_chat
 from utils.pdf_utils import update_vectorstore
 import re
 import warnings
-import time
 import random
 from functools import wraps
 
@@ -146,7 +145,7 @@ class ChatService:
 
     def cleanup_expired_sessions(self):
         """Clean up expired sessions if needed"""
-        current_time = time()
+        current_time = time.time()
         expired_sessions = [
             sid for sid, last_active in session_timestamps.items()
             if current_time - last_active > Config.SESSION_TIMEOUT
@@ -163,7 +162,7 @@ class ChatService:
     
     def update_session_timestamp(self, session_id):
         """Update last activity time for a session"""
-        session_timestamps[session_id] = time()
+        session_timestamps[session_id] = time.time()
     
     def get_conversation_chain(self, session_id):
         """Create or retrieve a conversation chain for a session"""
