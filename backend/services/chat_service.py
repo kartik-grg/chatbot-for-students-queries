@@ -2,7 +2,6 @@ import datetime
 import signal
 import time
 from langchain_classic.chains import ConversationalRetrievalChain
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_groq import ChatGroq
 from langchain_community.chat_models import ChatHuggingFace
 from langchain_classic.memory import ConversationBufferMemory
@@ -74,53 +73,17 @@ class ChatService:
     
     def _get_llm(self):
         """Get LLM instance based on configured provider"""
-        provider = Config.AI_PROVIDER.lower()
-        
-        if provider == "groq":
-            # Groq - FREE and FAST (Recommended)
-            if not Config.GROQ_API_KEY:
-                print("WARNING: GROQ_API_KEY not set, falling back to Google AI")
-                provider = "google"
-            else:
-                print(f"Using Groq AI with model: {Config.GROQ_MODEL}")
-                return ChatGroq(
-                    groq_api_key=Config.GROQ_API_KEY,
-                    model_name=Config.GROQ_MODEL,
-                    temperature=0.3,
-                    max_tokens=2048,
-                    timeout=Config.GROQ_TIMEOUT,
-                    max_retries=3
-                )
-        
-        if provider == "huggingface":
-            # HuggingFace Inference API - Free tier available
-            if not Config.HUGGINGFACE_API_KEY:
-                print("WARNING: HUGGINGFACE_API_KEY not set, falling back to Google AI")
-                provider = "google"
-            else:
-                print(f"Using HuggingFace with model: {Config.HUGGINGFACE_MODEL}")
-                from langchain_community.llms import HuggingFaceHub
-                return HuggingFaceHub(
-                    repo_id=Config.HUGGINGFACE_MODEL,
-                    huggingfacehub_api_token=Config.HUGGINGFACE_API_KEY,
-                    model_kwargs={"temperature": 0.3, "max_length": 2048}
-                )
-        
-        # Default to Google AI (may hit rate limits)
-        if provider == "google" or not provider:
-            if not Config.GOOGLE_API_KEY:
-                raise ValueError("No AI provider configured. Please set GROQ_API_KEY, GOOGLE_API_KEY, or HUGGINGFACE_API_KEY")
-            print("Using Google AI (may hit rate limits on free tier)")
-            return ChatGoogleGenerativeAI(
-                model="gemini-1.5-flash",
-                temperature=0.3,
-                google_api_key=Config.GOOGLE_API_KEY,
-                timeout=Config.GOOGLE_AI_TIMEOUT,
-                max_retries=Config.GOOGLE_AI_MAX_RETRIES,
-                max_output_tokens=2048,
-                top_p=0.8,
-                top_k=40
-            )
+        if not Config.GROQ_API_KEY:
+            raise ValueError("No AI provider configured. Please set GROQ_API_KEY.")
+        print(f"Using Groq AI with model: {Config.GROQ_MODEL}")
+        return ChatGroq(
+            groq_api_key=Config.GROQ_API_KEY,
+            model_name=Config.GROQ_MODEL,
+            temperature=0.3,
+            max_tokens=2048,
+            timeout=Config.GROQ_TIMEOUT,
+            max_retries=3
+        )
     
     def format_response(self, text):
         """Format markdown-style text to HTML"""

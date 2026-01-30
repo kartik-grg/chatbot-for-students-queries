@@ -12,11 +12,7 @@ class Config:
     # AI Provider Selection: 'groq', 'google', or 'huggingface'
     AI_PROVIDER = os.getenv("AI_PROVIDER", "groq")  # Default to Groq (free)
     
-    # Google AI configuration (legacy support)
-    GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
     LANGSMITH_API_KEY = os.getenv("LANGSMITH_API_KEY")
-    GOOGLE_AI_TIMEOUT = int(os.getenv("GOOGLE_AI_TIMEOUT", "30"))  # Default 30 seconds
-    GOOGLE_AI_MAX_RETRIES = int(os.getenv("GOOGLE_AI_MAX_RETRIES", "3"))  # Default 3 retries
     
     # Groq configuration (FREE - recommended)
     GROQ_API_KEY = os.getenv("GROQ_API_KEY")

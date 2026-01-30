@@ -3,7 +3,6 @@ import tempfile
 import requests
 from PyPDF2 import PdfReader
 from langchain_text_splitters import CharacterTextSplitter
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_pinecone import PineconeVectorStore
 from pinecone import Pinecone
@@ -20,40 +19,13 @@ def get_embeddings_model():
     """Get embeddings model based on configured provider"""
     provider = Config.AI_PROVIDER.lower()
     
-    # For embeddings, we can use HuggingFace (free) or Google
-    # Groq doesn't provide embeddings, so we fall back to HuggingFace for free option
-    if provider == "groq":
-        # Use free HuggingFace embeddings when using Groq for chat
-        print("Using HuggingFace embeddings (free) for vector storage")
-        return HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-L6-v2",
-            model_kwargs={'device': 'cpu'},
-            encode_kwargs={'normalize_embeddings': True}
-        )
-    elif provider == "huggingface":
-        print("Using HuggingFace embeddings (free) for vector storage")
-        return HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-L6-v2",
-            model_kwargs={'device': 'cpu'},
-            encode_kwargs={'normalize_embeddings': True}
-        )
-    else:
-        # Use Google embeddings (may hit rate limits)
-        if not Config.GOOGLE_API_KEY:
-            print("No GOOGLE_API_KEY, falling back to free HuggingFace embeddings")
-            return HuggingFaceEmbeddings(
-                model_name="sentence-transformers/all-MiniLM-L6-v2",
-                model_kwargs={'device': 'cpu'},
-                encode_kwargs={'normalize_embeddings': True}
-            )
-        print("Using Google AI embeddings (may hit rate limits)")
-        return GoogleGenerativeAIEmbeddings(
-            model="models/embedding-001",
-            google_api_key=Config.GOOGLE_API_KEY,
-            task_type="retrieval_query",
-            request_timeout=Config.GOOGLE_AI_TIMEOUT,
-            max_retries=Config.GOOGLE_AI_MAX_RETRIES
-        )
+    # Only use HuggingFace embeddings for all providers
+    print("Using HuggingFace embeddings (free) for vector storage")
+    return HuggingFaceEmbeddings(
+        model_name="sentence-transformers/all-MiniLM-L6-v2",
+        model_kwargs={'device': 'cpu'},
+        encode_kwargs={'normalize_embeddings': True}
+    )
 
 def get_pdf_text(pdf_docs):
     """Extract text from PDF documents"""
@@ -141,11 +113,8 @@ def get_vector_store(text_chunks, metadatas=None):
         
         # Check if index exists, if not create it
         index_name = Config.PINECONE_INDEX_NAME
-        # Dimension depends on embedding model:
-        # - Google embeddings: 768
-        # - HuggingFace all-MiniLM-L6-v2: 384
-        provider = Config.AI_PROVIDER.lower()
-        dimension = 384 if provider in ["groq", "huggingface"] else 768
+        # Only HuggingFace embedding dimension is supported
+        dimension = 384
         
         # Check if the index already exists
         indexes = [idx.name for idx in pc.list_indexes()]

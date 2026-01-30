@@ -130,18 +130,13 @@ def create_app(config_name='default'):
         # Check if embeddings already exist in Pinecone
         if embeddings_exist():
             print("Embeddings already exist in Pinecone, skipping creation")
-            # Initialize vectorstore with existing embeddings
-            from langchain_google_genai import GoogleGenerativeAIEmbeddings
+            from langchain_huggingface import HuggingFaceEmbeddings
             from langchain_pinecone import PineconeVectorStore
-            
-            embeddings = GoogleGenerativeAIEmbeddings(
-                model="models/embedding-001",
-                google_api_key=app.config.get('GOOGLE_API_KEY'),
-                task_type="retrieval_query",
-                request_timeout=app.config.get('GOOGLE_AI_TIMEOUT', 60),
-                max_retries=app.config.get('GOOGLE_AI_MAX_RETRIES', 3)
+            embeddings = HuggingFaceEmbeddings(
+                model_name="sentence-transformers/all-MiniLM-L6-v2",
+                model_kwargs={'device': 'cpu'},
+                encode_kwargs={'normalize_embeddings': True}
             )
-            
             vectorstore_global = PineconeVectorStore(
                 index_name=app.config.get('PINECONE_INDEX_NAME'),
                 embedding=embeddings,
@@ -233,37 +228,7 @@ def create_app(config_name='default'):
                 "timestamp": datetime.now().isoformat()
             }), 500
     
-    # Debug endpoint to test Google AI connectivity
-    @app.route('/debug/google-ai', methods=['GET'])
-    def test_google_ai():
-        try:
-            from langchain_google_genai import GoogleGenerativeAIEmbeddings
-            
-            # Test embedding creation with a simple text
-            embeddings = GoogleGenerativeAIEmbeddings(
-                model="models/embedding-001",
-                google_api_key=app.config.get('GOOGLE_API_KEY'),
-                task_type="retrieval_query",
-                request_timeout=15,  # Short timeout for test
-                max_retries=1
-            )
-            
-            # Try to embed a simple test text
-            test_vector = embeddings.embed_query("This is a test query")
-            
-            return jsonify({
-                "status": "Google AI test successful",
-                "embedding_dimension": len(test_vector) if test_vector else 0,
-                "api_key_configured": bool(app.config.get('GOOGLE_API_KEY')),
-                "timestamp": datetime.now().isoformat()
-            }), 200
-        except Exception as e:
-            return jsonify({
-                "status": "Google AI test failed",
-                "error": str(e),
-                "api_key_configured": bool(app.config.get('GOOGLE_API_KEY')),
-                "timestamp": datetime.now().isoformat()
-            }), 500
+
     
     # Debug endpoint to test email service
     @app.route('/debug/email', methods=['GET'])
