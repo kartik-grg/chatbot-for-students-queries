@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { api } from "../lib/api";
 import SpotlightCard from './ui/SpotlightCard';
 
 function QueryAnalytics() {
@@ -11,7 +11,7 @@ function QueryAnalytics() {
     const fetchAnalytics = async () => {
       try {
         const token = localStorage.getItem('adminToken');
-        const response = await axios.get('/api/admin/query-analytics', {
+        const response = await api.get('/api/admin/query-analytics', {
           headers: { Authorization: `Bearer ${token}` }
         });
         setData(response.data);

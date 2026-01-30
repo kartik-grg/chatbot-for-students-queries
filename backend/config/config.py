@@ -8,8 +8,20 @@ class Config:
     """Base configuration class"""
     SECRET_KEY = os.getenv("SECRET_KEY", "your_secret_key")
     MONGODB_URI = os.getenv("MONGO_URI")
-    GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+    
+    # AI Provider Selection: 'groq', 'google', or 'huggingface'
+    AI_PROVIDER = os.getenv("AI_PROVIDER", "groq")  # Default to Groq (free)
+    
     LANGSMITH_API_KEY = os.getenv("LANGSMITH_API_KEY")
+    
+    # Groq configuration (FREE - recommended)
+    GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+    GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")  # Fast and free
+    GROQ_TIMEOUT = int(os.getenv("GROQ_TIMEOUT", "30"))
+    
+    # HuggingFace configuration (alternative free option)
+    HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY")
+    HUGGINGFACE_MODEL = os.getenv("HUGGINGFACE_MODEL", "mistralai/Mixtral-8x7B-Instruct-v0.1")
 
     # Pinecone configuration
     PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")

@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { RiDashboardLine, RiLogoutBoxLine, RiMessage2Line, RiDeleteBin6Line, RiBarChart2Line, RiFileTextLine, RiRefreshLine } from 'react-icons/ri'
-import axios from "axios";
 import QueryAnalytics from './QueryAnalytics';
 import PDFManagement from './PDFManagement';
 import { rebuildEmbeddings } from '../lib/api';
+import { api } from "../lib/api";
 
 function Admin() {
   const navigate = useNavigate();
@@ -23,7 +23,7 @@ function Admin() {
   useEffect(() => {
     const fetchUnansweredQueries = async () => {
       try {
-        const res = await axios.get("/api/unanswered-queries");
+        const res = await api.get("/api/unanswered-queries");
         setUnansweredQueries(res.data.queries);
       } catch (error) {
         console.error("Error fetching unanswered queries:", error);
@@ -37,7 +37,7 @@ function Admin() {
     const fetchStats = async () => {
       try {
         const token = localStorage.getItem('adminToken');
-        const res = await axios.get('/api/admin/stats', {
+        const res = await api.get('/api/admin/stats', {
           headers: { Authorization: `Bearer ${token}` }
         });
         setStats(res.data);
@@ -51,7 +51,7 @@ function Admin() {
   const fetchAdminChatHistory = async () => {
     try {
       const token = localStorage.getItem('adminToken');
-      const res = await axios.get('/api/admin/chat-history', {
+      const res = await api.get('/api/admin/chat-history', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setAdminChatHistory(res.data.history);
@@ -62,7 +62,7 @@ function Admin() {
 
   const handleResponseSubmit = async (id) => {
     try {
-      await axios.post("/api/add-response", {
+      await api.post("/api/add-response", {
         id,
         response: response[id],
       });
@@ -76,7 +76,7 @@ function Admin() {
   const handleDeleteQuery = async (id) => {
     if (window.confirm('Are you sure you want to delete this query?')) {
       try {
-        await axios.delete(`/api/delete-query/${id}`);
+        await api.delete(`/api/delete-query/${id}`);
         setUnansweredQueries((prev) => prev.filter((query) => query._id !== id));
       } catch (error) {
         console.error("Error deleting query:", error);

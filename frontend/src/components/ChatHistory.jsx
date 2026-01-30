@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { api } from "../lib/api";
 import { format } from 'date-fns';
 import SpotlightCard from './ui/SpotlightCard';
 
@@ -12,7 +12,7 @@ function ChatHistory() {
     const fetchChatHistory = async () => {
       try {
         const token = localStorage.getItem('userToken');
-        const response = await axios.get('/api/chat-history', {
+        const response = await api.get('/api/chat-history', {
           headers: { Authorization: `Bearer ${token}` }
         });
         setChatHistory(response.data.history);

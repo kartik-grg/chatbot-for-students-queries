@@ -50,12 +50,33 @@ def create_app(config_name='default'):
     
     # Initialize extensions
     # Get CORS origins from environment variable - supports multiple comma-separated origins
-    cors_origins = os.environ.get('CORS_ORIGINS', '*').split(',')
-    cors_origins = [origin.strip() for origin in cors_origins if origin.strip()]
+    cors_origins_env = os.environ.get('CORS_ORIGINS', '')
+    
+    if cors_origins_env:
+        cors_origins = [origin.strip() for origin in cors_origins_env.split(',') if origin.strip()]
+    else:
+        # Fallback origins for development and common deployment platforms
+        cors_origins = [
+            'http://localhost:3000',
+            'http://localhost:5173', 
+            'http://127.0.0.1:3000',
+            'http://127.0.0.1:5173',
+            'https://*.vercel.app',
+            'https://*.netlify.app'
+        ]
+    
+    print(f"CORS Origins configured: {cors_origins}")
     
     cors = CORS(
         app, 
-        resources={r"/api/*": {"origins": cors_origins}},
+        resources={
+            r"/api/*": {
+                "origins": cors_origins,
+                "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+                "allow_headers": ["Content-Type", "Authorization"],
+                "supports_credentials": True
+            }
+        },
         supports_credentials=True
     )
     mail = Mail(app)
@@ -109,16 +130,13 @@ def create_app(config_name='default'):
         # Check if embeddings already exist in Pinecone
         if embeddings_exist():
             print("Embeddings already exist in Pinecone, skipping creation")
-            # Initialize vectorstore with existing embeddings
-            from langchain_google_genai import GoogleGenerativeAIEmbeddings
+            from langchain_huggingface import HuggingFaceEmbeddings
             from langchain_pinecone import PineconeVectorStore
-            
-            embeddings = GoogleGenerativeAIEmbeddings(
-                model="models/embedding-001",
-                google_api_key=app.config.get('GOOGLE_API_KEY'),
-                task_type="retrieval_query"
+            embeddings = HuggingFaceEmbeddings(
+                model_name="sentence-transformers/all-MiniLM-L6-v2",
+                model_kwargs={'device': 'cpu'},
+                encode_kwargs={'normalize_embeddings': True}
             )
-            
             vectorstore_global = PineconeVectorStore(
                 index_name=app.config.get('PINECONE_INDEX_NAME'),
                 embedding=embeddings,
@@ -175,6 +193,42 @@ def create_app(config_name='default'):
                 "url": str(rule)
             })
         return {"routes": routes}, 200
+    
+    # Debug endpoint to test CORS and environment
+    @app.route('/debug/cors', methods=['GET', 'OPTIONS'])
+    def test_cors():
+        return jsonify({
+            "status": "CORS test successful",
+            "cors_origins": cors_origins,
+            "request_origin": request.headers.get('Origin'),
+            "method": request.method,
+            "environment": os.environ.get("FLASK_ENV", "development")
+        }), 200
+    
+    # Debug endpoint to test query endpoint without AI processing
+    @app.route('/debug/query', methods=['POST', 'OPTIONS'])
+    def test_query():
+        if request.method == 'OPTIONS':
+            return '', 200
+        
+        try:
+            data = request.json
+            question = data.get("question", "test question")
+            
+            return jsonify({
+                "status": "Query endpoint test successful",
+                "received_question": question,
+                "mock_answer": f"This is a mock response to: {question}",
+                "vectorstore_available": vectorstore_global is not None,
+                "timestamp": datetime.now().isoformat()
+            }), 200
+        except Exception as e:
+            return jsonify({
+                "error": f"Query test failed: {str(e)}",
+                "timestamp": datetime.now().isoformat()
+            }), 500
+    
+
     
     # Debug endpoint to test email service
     @app.route('/debug/email', methods=['GET'])
@@ -245,6 +299,9 @@ def main():
     print(f"Server running on http://localhost:{port}")
     
     app.run(host='0.0.0.0', port=port, debug=debug_mode)
+
+# Create a global app object for Gunicorn to use
+app = create_app(os.getenv('FLASK_ENV', 'production'))
 
 if __name__ == "__main__":
     main()

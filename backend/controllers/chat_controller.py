@@ -25,6 +25,9 @@ class ChatController:
             # Extract user_id from token if available
             user_id = None
             if user_token:
+                # Remove 'Bearer ' prefix if present
+                if user_token.startswith('Bearer '):
+                    user_token = user_token[7:]
                 payload = decode_token(user_token)
                 if payload:
                     user_id = payload.get('user_id')
@@ -33,7 +36,14 @@ class ChatController:
             return jsonify(result), status_code
             
         except Exception as e:
-            return jsonify({"error": f"Query processing failed: {str(e)}"}), 500
+            error_msg = str(e)
+            # Check if this is a timeout error from the embedding service
+            if "504 Deadline Exceeded" in error_msg or "Error embedding content" in error_msg:
+                return jsonify({
+                    "error": "The AI service is currently experiencing high demand. Please try again in a few moments.",
+                    "user_friendly_error": True
+                }), 503  # Service Unavailable
+            return jsonify({"error": f"Query processing failed: {error_msg}"}), 500
     
     def get_chat_history(self):
         """Get user's chat history"""
@@ -42,6 +52,10 @@ class ChatController:
             if not user_token:
                 return jsonify({"error": "Authentication required"}), 401
             
+            # Remove 'Bearer ' prefix if present
+            if user_token.startswith('Bearer '):
+                user_token = user_token[7:]
+                
             payload = decode_token(user_token)
             if not payload:
                 return jsonify({"error": "Invalid token"}), 401

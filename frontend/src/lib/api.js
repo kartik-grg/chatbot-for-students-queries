@@ -1,9 +1,51 @@
 import axios from 'axios';
 
 // Create axios instance with base URL from environment variable
+const baseURL = import.meta.env.VITE_API_BASE_URL || '';
+console.log('API Service initialized with baseURL:', baseURL);
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '',
+  baseURL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  withCredentials: true, // Important for CORS with credentials
+  timeout: 600000, // 10 minutes timeout for AI processing
 });
+
+// Add request interceptor to include token with every request
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('adminToken');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    console.error('Request interceptor error:', error);
+    return Promise.reject(error);
+  }
+);
+
+// Add response interceptor to handle errors
+api.interceptors.response.use(
+  (response) => {
+    return response;
+  },
+  (error) => {
+    // Log detailed error information
+    console.error('API Error:', {
+      message: error.message,
+      endpoint: error.config?.url,
+      method: error.config?.method,
+      status: error.response?.status,
+      data: error.response?.data,
+    });
+    
+    return Promise.reject(error);
+  }
+);
 
 // Export the configured axios instance for direct use in components
 export { api };

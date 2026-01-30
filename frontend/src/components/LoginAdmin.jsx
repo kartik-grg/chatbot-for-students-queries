@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { RiAdminLine } from "react-icons/ri";
 import { useNavigate } from "react-router-dom";
 import GradientText from "./ui/GradientText";
-import axios from "axios";
+import { api } from "../lib/api";
 
 function LoginAdmin() {
   const navigate = useNavigate();
@@ -17,7 +17,7 @@ function LoginAdmin() {
     setError("");
 
     try {
-      const response = await axios.post("/api/admin/login", {
+      const response = await api.post("/api/admin/login", {
         email: formData.email,
         password: formData.password,
       });
