@@ -16,10 +16,14 @@ pymongo==4.5.0
 langchain
 langchain-core
 langchain-google-genai
+langchain-groq
+langchain-huggingface
 langchain-community
 pinecone-client>=2.2.0
 langchain-pinecone
 textblob==0.15.3
+sentence-transformers
+huggingface-hub
 
 # PDF processing
 PyPDF2==3.0.1

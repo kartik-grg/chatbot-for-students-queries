@@ -4,6 +4,7 @@ import requests
 from PyPDF2 import PdfReader
 from langchain_text_splitters import CharacterTextSplitter
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_pinecone import PineconeVectorStore
 from pinecone import Pinecone
 from reportlab.pdfgen import canvas
@@ -14,6 +15,45 @@ import cloudinary.utils
 import cloudinary.api
 from config.config import Config
 from services.cloudinary_service import CloudinaryService
+
+def get_embeddings_model():
+    """Get embeddings model based on configured provider"""
+    provider = Config.AI_PROVIDER.lower()
+    
+    # For embeddings, we can use HuggingFace (free) or Google
+    # Groq doesn't provide embeddings, so we fall back to HuggingFace for free option
+    if provider == "groq":
+        # Use free HuggingFace embeddings when using Groq for chat
+        print("Using HuggingFace embeddings (free) for vector storage")
+        return HuggingFaceEmbeddings(
+            model_name="sentence-transformers/all-MiniLM-L6-v2",
+            model_kwargs={'device': 'cpu'},
+            encode_kwargs={'normalize_embeddings': True}
+        )
+    elif provider == "huggingface":
+        print("Using HuggingFace embeddings (free) for vector storage")
+        return HuggingFaceEmbeddings(
+            model_name="sentence-transformers/all-MiniLM-L6-v2",
+            model_kwargs={'device': 'cpu'},
+            encode_kwargs={'normalize_embeddings': True}
+        )
+    else:
+        # Use Google embeddings (may hit rate limits)
+        if not Config.GOOGLE_API_KEY:
+            print("No GOOGLE_API_KEY, falling back to free HuggingFace embeddings")
+            return HuggingFaceEmbeddings(
+                model_name="sentence-transformers/all-MiniLM-L6-v2",
+                model_kwargs={'device': 'cpu'},
+                encode_kwargs={'normalize_embeddings': True}
+            )
+        print("Using Google AI embeddings (may hit rate limits)")
+        return GoogleGenerativeAIEmbeddings(
+            model="models/embedding-001",
+            google_api_key=Config.GOOGLE_API_KEY,
+            task_type="retrieval_query",
+            request_timeout=Config.GOOGLE_AI_TIMEOUT,
+            max_retries=Config.GOOGLE_AI_MAX_RETRIES
+        )
 
 def get_pdf_text(pdf_docs):
     """Extract text from PDF documents"""
@@ -101,7 +141,11 @@ def get_vector_store(text_chunks, metadatas=None):
         
         # Check if index exists, if not create it
         index_name = Config.PINECONE_INDEX_NAME
-        dimension = 768  # Dimension for Google Embeddings model
+        # Dimension depends on embedding model:
+        # - Google embeddings: 768
+        # - HuggingFace all-MiniLM-L6-v2: 384
+        provider = Config.AI_PROVIDER.lower()
+        dimension = 384 if provider in ["groq", "huggingface"] else 768
         
         # Check if the index already exists
         indexes = [idx.name for idx in pc.list_indexes()]
@@ -114,14 +158,7 @@ def get_vector_store(text_chunks, metadatas=None):
             )
         
         # Create embeddings with retry logic
-        embeddings = GoogleGenerativeAIEmbeddings(
-            model="models/embedding-001",
-            google_api_key=Config.GOOGLE_API_KEY,
-            task_type="retrieval_query",
-            # Add timeout and retry settings from config
-            request_timeout=Config.GOOGLE_AI_TIMEOUT,
-            max_retries=Config.GOOGLE_AI_MAX_RETRIES
-        )
+        embeddings = get_embeddings_model()
         
         # Create and return the vector store
         print(f"Creating vector store from {len(clean_chunks)} chunks")
@@ -139,13 +176,7 @@ def get_vector_store(text_chunks, metadatas=None):
         print(f"Error creating vector store: {str(e)}")
         # Create a minimal vector store with default content
         default_text = ["This is a student query chatbot for academic assistance."]
-        embeddings = GoogleGenerativeAIEmbeddings(
-            model="models/embedding-001", 
-            google_api_key=Config.GOOGLE_API_KEY,
-            task_type="retrieval_query",
-            request_timeout=Config.GOOGLE_AI_TIMEOUT,
-            max_retries=Config.GOOGLE_AI_MAX_RETRIES
-        )
+        embeddings = get_embeddings_model()
         
         vectorstore = PineconeVectorStore.from_texts(
             texts=default_text,
@@ -235,127 +266,8 @@ def create_embeddings():
     
     print(f"Created {len(chunks)} chunks with minimal metadata")
 
-    # Initialize Pinecone with v3 API
-    pc = Pinecone(api_key=Config.PINECONE_API_KEY)
-    
-    # Check if index exists, if not create it
-    index_name = Config.PINECONE_INDEX_NAME
-    dimension = 768  # Dimension for Google Embeddings model
-    
-    # Check if the index already exists
-    indexes = [idx.name for idx in pc.list_indexes()]
-    if index_name not in indexes:
-        print(f"Creating Pinecone index: {index_name}")
-        pc.create_index(
-            name=index_name,
-            dimension=dimension,
-            metric="cosine"
-        )
-    
-    # Create embeddings
-    embeddings = GoogleGenerativeAIEmbeddings(
-        model="models/embedding-001",
-        google_api_key=Config.GOOGLE_API_KEY,
-        task_type="retrieval_query" 
-    )
-    
-    # Create and return the vector store with namespace
-    # Add in smaller batches to avoid overwhelming Pinecone
-    batch_size = 50  # Process in batches of 50 vectors
-    total_chunks = len(chunks)
-    
-    print(f"Creating vectors in batches of {batch_size}, total chunks: {total_chunks}")
-    
-    try:
-        # Try a completely different approach using direct Pinecone API
-        print("Using direct Pinecone API approach")
-        
-        # Initialize the index
-        index = pc.Index(index_name)
-        
-        # Create embeddings for each chunk directly
-        vectors_to_upsert = []
-        
-        # Process in smaller batches
-        first_batch_size = min(batch_size, total_chunks)
-        
-        # Only process a few chunks for testing
-        for i, chunk in enumerate(chunks[:first_batch_size]):
-            # Get embedding vector for this chunk
-            try:
-                vector = embeddings.embed_query(chunk)
-                
-                # Create vector record with minimal metadata
-                vector_record = {
-                    "id": f"chunk_{i}",
-                    "values": vector,
-                    "metadata": {"id": str(i)}  # Absolutely minimal metadata
-                }
-                
-                vectors_to_upsert.append(vector_record)
-                print(f"Created embedding vector for chunk {i}")
-            except Exception as e:
-                print(f"Error embedding chunk {i}: {str(e)}")
-        
-        # Upsert vectors directly to Pinecone
-        if vectors_to_upsert:
-            print(f"Upserting {len(vectors_to_upsert)} vectors to Pinecone")
-            index.upsert(vectors=vectors_to_upsert, namespace="course_materials")
-            print("Successfully upserted vectors")
-        
-        # Create and return LangChain wrapper around the index
-        vectorstore = PineconeVectorStore(
-            index_name=index_name,
-            embedding=embeddings,
-            namespace="course_materials"
-        )
-        
-        # Add remaining batches if any
-        if total_chunks > first_batch_size:
-            for i in range(first_batch_size, total_chunks, batch_size):
-                end_idx = min(i + batch_size, total_chunks)
-                batch_chunks = chunks[i:end_idx]
-                
-                # Create absolutely minimal metadata
-                batch_metadatas = []
-                for j in range(i, end_idx):
-                    batch_metadatas.append({"id": str(j)})
-                
-                print(f"Adding batch {i//batch_size + 1} with {len(batch_chunks)} chunks")
-                
-                # Add these chunks to the existing vectorstore
-                # Debug metadata size
-                import json
-                metadata_size = len(json.dumps(batch_metadatas).encode('utf-8'))
-                print(f"Batch metadata size: {metadata_size} bytes")
-                
-                vectorstore.add_texts(
-                    texts=batch_chunks,
-                    metadatas=batch_metadatas
-                )
-        
-        print("Successfully created vector store with all chunks")
-        return vectorstore
-        
-    except Exception as e:
-        print(f"Error creating vector store in batches: {str(e)}")
-        print("Falling back to default vector store")
-        
-        # Create a minimal default vector store
-        default_text = ["This is a student query chatbot for academic assistance."]
-        default_metadata = [{"source": "default"}]
-        
-        vectorstore = PineconeVectorStore.from_texts(
-            texts=default_text,
-            embedding=embeddings,
-            metadatas=default_metadata,
-            index_name=index_name,
-            namespace="course_materials"
-        )
-        return vectorstore
-    
-    print("Embeddings created successfully!")
-    return vectorstore
+    # Use the unified get_vector_store logic, which already selects the correct embedding model
+    return get_vector_store(chunks, metadatas)
 
 def append_to_pdf(question, answer):
     """Append question and answer to extra.pdf in Cloudinary"""
