@@ -1,10 +1,10 @@
 import datetime
 import signal
 import time
-from langchain.chains import ConversationalRetrievalChain
+from langchain_classic.chains import ConversationalRetrievalChain
 from langchain_groq import ChatGroq
 from langchain_community.chat_models import ChatHuggingFace
-from langchain.memory import ConversationBufferMemory
+from langchain_classic.memory import ConversationBufferMemory
 from langchain_core.prompts.chat import ChatPromptTemplate
 from config.config import Config
 from models.models import Query, ChatHistory

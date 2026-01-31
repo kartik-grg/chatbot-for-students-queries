@@ -1,4 +1,3 @@
-# pip configuration (for Render deployment)
 # Using pre-built wheels when possible
 --prefer-binary
 
@@ -14,6 +13,8 @@ pymongo==4.5.0
 # AI and ML dependencies - Using a combination that works together with Python 3.10
 # Removing specific versions and letting pip resolve dependencies
 langchain
+langchain-classic
+langchain-community
 langchain-core
 langchain-groq
 langchain-huggingface
