@@ -478,6 +478,7 @@ def append_to_pdf(question, answer):
                 pdf_path,
                 resource_type="raw",
                 public_id=public_id,
+                folder=Config.PDF_FOLDER,
                 overwrite=True,
                 access_mode="public"
             )
